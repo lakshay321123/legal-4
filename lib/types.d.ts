@@ -1,7 +1,4 @@
 // lib/types.d.ts
-
-// Allow jsdom without full type definitions
+// Allow these libraries without installing their type packages
 declare module 'jsdom';
-
-// Allow Mozilla Readability without full type definitions
 declare module '@mozilla/readability';
