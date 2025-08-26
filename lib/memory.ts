@@ -1,13 +1,24 @@
 // lib/memory.ts
-// Lightweight, in-memory context store + simple extractors.
-// NOTE: On serverless (Vercel), this resets when the function instance is recycled.
-// For persistence across instances, plug these into a DB/Redis later.
+// In-memory context store with topic + last question.
+// NOTE: On serverless (Vercel), this resets when the function instance recycles.
+// For persistence, later plug into a DB/Redis.
+
+export type Topic =
+  | 'rent_agreement'
+  | 'legal_notice'
+  | 'consumer'
+  | 'constitution'
+  | 'criminal'
+  | 'case_law'
+  | 'other';
 
 export type Context = {
   intent?: 'rent_agreement' | 'legal_notice' | 'other';
+  topic?: Topic;
   city?: string;
   state?: string;
   property?: 'house' | 'apartment' | 'shop' | 'office' | 'land' | 'other';
+  lastQ?: string;
   extras?: string[];
   updatedAt?: number;
 };
@@ -25,7 +36,9 @@ export function updateContext(userId: string, patch: Partial<Context>) {
   return next;
 }
 
-/** ======== Extractors (very simple / regex-based) ======== */
+export function clearContext(userId: string) {
+  memory.set(userId, { updatedAt: Date.now(), extras: [] });
+}
 
 const STATES = [
   'andhra pradesh','arunachal pradesh','assam','bihar','chhattisgarh','goa','gujarat','haryana','himachal pradesh',
@@ -35,51 +48,36 @@ const STATES = [
 ];
 
 const PROPERTY_WORDS: Array<[Context['property'], RegExp]> = [
-  ['house', /\b(house|villa|independent\s+house)\b/i],
+  ['house', /\b(house|villa|independent\s+house|residential)\b/i],
   ['apartment', /\b(apartment|flat|condo)\b/i],
-  ['shop', /\b(shop|storefront)\b/i],
+  ['shop', /\b(shop|storefront|commercial)\b/i],
   ['office', /\b(office|workspace)\b/i],
   ['land', /\b(land|plot|site)\b/i],
 ];
 
 export function extractContextBits(text: string): Partial<Context> {
   const s = text.toLowerCase();
-
-  // Intent
   let intent: Context['intent'] | undefined;
-  if (/\brent\s+agreement\b|\brental\s+agreement\b|\blease\s+agreement\b/.test(s)) {
-    intent = 'rent_agreement';
-  } else if (/\blegal\s+notice\b/.test(s)) {
-    intent = 'legal_notice';
-  }
+  if (/\brent\s+agreement\b|\brental\s+agreement\b|\blease\s+agreement\b/.test(s)) intent = 'rent_agreement';
+  else if (/\blegal\s+notice\b/.test(s)) intent = 'legal_notice';
 
-  // City / State (very naive heuristics)
-  // Try "in <word(s)>" pattern first
   let city: string | undefined;
   let state: string | undefined;
 
   const inMatch = s.match(/\b(in|at|within)\s+([a-zA-Z\s]{2,30})\b/);
   if (inMatch) {
     const place = inMatch[2].trim();
-    // If it matches a state list, set state, else city.
-    if (STATES.includes(place)) state = capitalizeWords(place);
-    else city = capitalizeWords(place);
+    if (STATES.includes(place)) state = cap(place);
+    else city = cap(place);
   }
-
-  // Direct “Delhi”, “Mumbai”, or a state mentioned anywhere
   if (!city && /\bdelhi\b/.test(s)) city = 'Delhi';
   if (!state) {
-    const foundState = STATES.find(st => s.includes(st));
-    if (foundState) state = capitalizeWords(foundState);
+    const found = STATES.find(st => s.includes(st));
+    if (found) state = cap(found);
   }
 
-  // Property type
   let property: Context['property'] | undefined;
-  for (const [kind, rx] of PROPERTY_WORDS) {
-    if (rx.test(text)) { property = kind; break; }
-  }
-  if (!property && /\bresidential\b/i.test(text)) property = 'house';
-  if (!property && /\bcommercial\b/i.test(text)) property = 'shop';
+  for (const [kind, rx] of PROPERTY_WORDS) if (rx.test(text)) { property = kind; break; }
 
   const bits: Partial<Context> = {};
   if (intent) bits.intent = intent;
@@ -91,17 +89,19 @@ export function extractContextBits(text: string): Partial<Context> {
 
 export function summarizeContext(ctx: Context): string {
   const parts: string[] = [];
-  if (ctx.intent) {
-    const t = ctx.intent === 'rent_agreement' ? 'Rent Agreement' :
-              ctx.intent === 'legal_notice' ? 'Legal Notice' : 'General';
-    parts.push(`Intent: ${t}`);
-  }
+  if (ctx.intent) parts.push(`Intent: ${ctx.intent === 'rent_agreement' ? 'Rent Agreement' : ctx.intent === 'legal_notice' ? 'Legal Notice' : 'General'}`);
   if (ctx.city) parts.push(`City: ${ctx.city}`);
   if (ctx.state) parts.push(`State/UT: ${ctx.state}`);
-  if (ctx.property) parts.push(`Property: ${capitalizeWords(ctx.property)}`);
+  if (ctx.property) parts.push(`Property: ${cap(ctx.property)}`);
   return parts.join(' · ');
 }
 
-function capitalizeWords(s: string) {
-  return s.replace(/\b[a-z]/g, m => m.toUpperCase());
+export function jaccardSimilarity(a: string, b: string) {
+  const tok = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(w => w.length>2));
+  const A = tok(a), B = tok(b);
+  const inter = new Set([...A].filter(x => B.has(x)));
+  const union = new Set([...A, ...B]);
+  return union.size ? inter.size / union.size : 0;
 }
+
+function cap(s: string) { return s.replace(/\b[a-z]/g, m => m.toUpperCase()); }
