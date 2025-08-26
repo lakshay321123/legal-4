@@ -15,7 +15,13 @@
     "jsx": "preserve",
     "incremental": true,
     "plugins": [{ "name": "next" }],
-    "types": ["node"]
+    "types": ["node"],
+
+    // let imports like "@/lib/..." and "@/components/..." work everywhere
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": [
     "next-env.d.ts",
