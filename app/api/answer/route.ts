@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-async function bingSearch(query: string) {
+type SearchItem = { title: string; url: string; tag?: string };
+
+async function bingSearch(query: string): Promise<SearchItem[]> {
   const key = process.env.BING_API_KEY;
   if (!key) {
     return [
@@ -15,18 +17,31 @@ async function bingSearch(query: string) {
   const r = await fetch(url, { headers: { 'Ocp-Apim-Subscription-Key': key } });
   if (!r.ok) return [];
   const data = await r.json();
-  return (data.webPages?.value || []).map((x: any) => ({ title: x.name, url: x.url }));
+  const results: SearchItem[] = (data.webPages?.value || []).map((x: any) => ({
+    title: x.name as string,
+    url: x.url as string
+  }));
+  return results;
 }
 
-async function scrape(url: string) {
+async function scrape(url: string): Promise<string> {
   try {
-    const r = await fetch(process.env.NEXT_PUBLIC_BASE_URL ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/scrape` : 'http://localhost:3000/api/scrape', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url })
+    const endpoint =
+      process.env.NEXT_PUBLIC_BASE_URL
+        ? `${process.env.NEXT_PUBLIC_BASE_URL}/api/scrape`
+        : 'http://localhost:3000/api/scrape';
+
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
     });
     if (!r.ok) return '';
     const data = await r.json();
     return (data.text as string) || '';
-  } catch { return ''; }
+  } catch {
+    return '';
+  }
 }
 
 export async function POST(req: Request) {
@@ -34,9 +49,9 @@ export async function POST(req: Request) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   // 1) Search
-  const searchResults = await bingSearch(query);
+  const searchResults: SearchItem[] = await bingSearch(query);
   // 2) Scrape top 3
-  const top = searchResults.slice(0, 3);
+  const top: SearchItem[] = searchResults.slice(0, 3);
   const texts: string[] = [];
   for (const r of top) {
     const t = await scrape(r.url);
@@ -44,13 +59,21 @@ export async function POST(req: Request) {
   }
 
   // Hindi preference (Citizen)
-  const preferHindi = (mode !== 'lawyer') && (typeof process !== 'undefined') && (process?.env?.PREFER_HINDI === '1');
+  const preferHindi =
+    mode !== 'lawyer' &&
+    typeof process !== 'undefined' &&
+    (process?.env?.PREFER_HINDI === '1');
 
   if (!apiKey) {
     const mock = {
       answer:
-`**${mode === 'lawyer' ? 'Issues & Authorities' : 'Plain-language summary'}**\n\nThis is a demo answer. Connect OPENAI_API_KEY for grounded responses built from official sources.\n\n**Citations:**\n${top.map((r,i)=>`[${i+1}] ${r.title}`).join('\n')}`,
-      sources: top.map((r,i)=>({ title: r.title, url: r.url }))
+`**${mode === 'lawyer' ? 'Issues & Authorities' : 'Plain-language summary'}**
+
+This is a demo answer. Connect OPENAI_API_KEY for grounded responses built from official sources.
+
+**Citations:**
+${top.map((r: SearchItem, i: number) => `[${i + 1}] ${r.title}`).join('\n')}`,
+      sources: top.map((r: SearchItem) => ({ title: r.title, url: r.url }))
     };
     return NextResponse.json(mock);
   }
@@ -59,9 +82,10 @@ export async function POST(req: Request) {
     const { OpenAI } = await import('openai');
     const openai = new OpenAI({ apiKey });
 
-    const system = mode === 'lawyer'
-      ? "You are a legal research assistant for Indian lawyers. Answer ONLY from the provided source excerpts. If insufficient, say so. Start with issues and holdings, then ratio, then key paragraphs. Always show citations with section/paragraph numbers. Keep tone concise and neutral."
-      : "You are a legal explainer for citizens in India. Use simple language and short sentences. Answer ONLY from the provided source excerpts. If insufficient, say so. List practical steps, documents required, offices to approach, and typical timelines. Always show citations with section numbers. Add a caution note. Keep it respectful and neutral.";
+    const system =
+      mode === 'lawyer'
+        ? "You are a legal research assistant for Indian lawyers. Answer ONLY from the provided source excerpts. If insufficient, say so. Start with issues and holdings, then ratio, then key paragraphs. Always show citations with section/paragraph numbers. Keep tone concise and neutral."
+        : "You are a legal explainer for citizens in India. Use simple language and short sentences. Answer ONLY from the provided source excerpts. If insufficient, say so. List practical steps, documents required, offices to approach, and typical timelines. Always show citations with section numbers. Add a caution note. Keep it respectful and neutral.";
 
     const user = `Question: ${query}
 Guidelines:
@@ -84,7 +108,7 @@ ${texts.join('\n\n-----\n\n')}
     });
 
     const text = completion.choices[0]?.message?.content ?? "Insufficient authority found. Refine your query.";
-    const sources = top.map((r) => ({ title: r.title, url: r.url }));
+    const sources = top.map((r: SearchItem) => ({ title: r.title, url: r.url }));
     return NextResponse.json({ answer: text, sources });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? 'LLM error' }, { status: 500 });
