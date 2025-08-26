@@ -1,79 +1,57 @@
-// app/api/upload/route.ts
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
-
 import { NextResponse } from 'next/server';
+export const runtime = 'nodejs'; // pdf-parse/mammoth need Node
 
-async function extractFromPdf(buf: Buffer) {
-  const pdfParse = (await import('pdf-parse')).default;
-  const res = await pdfParse(buf);
-  return res.text || '';
+type Doc = { name: string; type: string; text: string };
+
+async function readPdf(buf: Buffer) {
+  const pdfParse = (await import('pdf-parse')).default as any;
+  const data = await pdfParse(buf);
+  return (data?.text as string) || '';
 }
 
-async function extractFromDocx(buf: Buffer) {
+async function readDocx(buf: Buffer) {
   const mammoth = await import('mammoth');
-  const { value } = await mammoth.extractRawText({ buffer: buf });
-  return value || '';
+  const res = await mammoth.extractRawText({ buffer: buf });
+  return (res?.value as string) || '';
 }
 
-async function ocrWithGemini(imageBase64: string, mimeType: string) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return '[OCR unavailable: missing GEMINI_API_KEY]';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(key)}`;
-  const body = {
-    contents: [{
-      role: 'user',
-      parts: [
-        { text: 'Extract the readable text and key facts from this image. Return plain text.' },
-        { inline_data: { mime_type: mimeType, data: imageBase64 } }
-      ]
-    }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 800 }
-  };
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const text = await res.text();
-  if (!res.ok) return `[OCR error ${res.status}] ${text.slice(0,300)}`;
-  const data = JSON.parse(text);
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  return parts.map((p: any) => p?.text ?? '').join('').trim();
+async function readImageToHint(_buf: Buffer) {
+  // For now: we don’t OCR; just a stub note.
+  return '[Image attached: describe its legal context in your answer.]';
 }
 
 export async function POST(req: Request) {
-  try {
-    const form = await req.formData();
-    const items = form.getAll('files');
+  const form = await req.formData();
+  const files = form.getAll('files') as File[];
+  const out: Doc[] = [];
 
-    const out: Array<{ name: string; type: string; text: string }> = [];
+  for (const f of files) {
+    const ab = await f.arrayBuffer();
+    const buf = Buffer.from(ab);
+    const name = f.name || 'file';
+    const lc = name.toLowerCase();
 
-    for (const it of items) {
-      const f = it as File;
-      const name = f.name || 'file';
-      const type = f.type || 'application/octet-stream';
-      const buf = Buffer.from(await f.arrayBuffer());
-
-      let text = '';
-      if (type === 'application/pdf') {
-        text = await extractFromPdf(buf);
-      } else if (type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        text = await extractFromDocx(buf);
-      } else if (type.startsWith('image/')) {
-        const b64 = buf.toString('base64');
-        text = await ocrWithGemini(b64, type);
-      } else if (type.startsWith('text/')) {
+    let text = '';
+    try {
+      if (lc.endsWith('.pdf')) {
+        text = await readPdf(buf);
+      } else if (lc.endsWith('.docx')) {
+        text = await readDocx(buf);
+      } else if (lc.endsWith('.txt')) {
         text = buf.toString('utf8');
+      } else if (f.type.startsWith('image/')) {
+        text = await readImageToHint(buf);
       } else {
-        // fall back: try utf8
-        text = buf.toString('utf8');
+        text = ''; // unsupported
       }
-
-      // limit very large files
-      if (text.length > 40_000) text = text.slice(0, 40_000) + '\n[truncated]';
-      out.push({ name, type, text: text.trim() });
+    } catch {
+      text = '';
     }
 
-    return NextResponse.json({ files: out });
-  } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    if (text.trim()) {
+      out.push({ name, type: f.type || 'unknown', text: text.slice(0, 20000) });
+    }
   }
+
+  return NextResponse.json({ files: out });
 }
