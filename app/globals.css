@@ -2,18 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Typography polish */
-.prose :where(h1, h2, h3, strong, b) {
-  color: #111827;
-}
-.prose {
-  max-width: none; /* let it fill the chat bubble width */
+:root {
+  color-scheme: light;
 }
 
-/* Page background + font smoothing */
-html, body, :root { height: 100%; }
-body { background: #f8fafc; color: #0f172a; -webkit-font-smoothing: antialiased; }
+body {
+  @apply bg-white text-slate-800;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-/* Chat layout helpers */
-.chat-container { @apply mx-auto max-w-4xl px-4 lg:px-6; }
-.card { @apply bg-white rounded-2xl shadow-sm border border-slate-200; }
+.card {
+  @apply bg-white border border-slate-200 rounded-2xl shadow-soft;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50;
+}
+
+.input {
+  @apply w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500;
+}
+
+.prose-custom {
+  @apply prose prose-slate max-w-none;
+}
