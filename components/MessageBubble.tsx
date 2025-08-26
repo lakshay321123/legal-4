@@ -1,29 +1,24 @@
 'use client';
-
 import Markdown from './Markdown';
-import { clsx } from 'clsx';
+import clsx from 'clsx';
 
 export default function MessageBubble({
   role,
-  text,
+  content,
 }: {
   role: 'user' | 'assistant';
-  text: string;
+  content: string;
 }) {
-  const mine = role === 'user';
   return (
-    <div className={clsx("w-full flex", mine ? "justify-end" : "justify-start")}>
-      <div
-        className={clsx(
-          "max-w-[85%] md:max-w-[75%] lg:max-w-[70%] card p-4 md:p-5",
-          mine ? "bg-slate-900 text-white border-transparent" : "bg-white"
-        )}
-      >
-        {mine ? (
-          <div className="whitespace-pre-wrap">{text}</div>
-        ) : (
-          <Markdown>{text}</Markdown>
-        )}
+    <div className={clsx(
+      "max-w-[80ch] rounded-2xl border px-4 py-3",
+      role === 'user' ? "bg-white" : "bg-slate-50"
+    )}>
+      <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">
+        {role === 'user' ? 'You' : 'LexLens'}
+      </div>
+      <div className="text-sm leading-7">
+        <Markdown>{content}</Markdown>
       </div>
     </div>
   );
