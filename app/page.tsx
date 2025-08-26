@@ -2,7 +2,7 @@
 import { Suspense } from 'react';
 import HomeClient from './home-client';
 
-export const dynamic = 'force-dynamic';  // avoid static prerender issues
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default function Page() {
