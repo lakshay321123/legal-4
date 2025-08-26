@@ -1,31 +1,41 @@
 'use client';
 
-import ChatSidebar from '@/components/ChatSidebar';
-import ChatWindow from '@/components/ChatWindow';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { isBrowser, load } from '@/lib/safe';
+import dynamic from 'next/dynamic';
+
+// Load heavy UI only on the client (no SSR) to avoid window/localStorage crashes
+const ChatSidebar = dynamic(() => import('@/components/ChatSidebar'), { ssr: false });
+const ChatWindow  = dynamic(() => import('@/components/ChatWindow'), { ssr: false });
+
+const isBrowser = () => typeof window !== 'undefined';
 
 export default function HomeClient() {
   const params = useSearchParams();
   const id = params.get('id') ?? undefined;
 
-  // render only after the browser is ready to avoid client-side crashes
+  // render only after mount to avoid hydration/client crashes
   const [ready, setReady] = useState(false);
   useEffect(() => { setReady(true); }, []);
 
-  // warm up localStorage safely (ignore if missing/corrupt)
+  // optional one-time reset if stored data is corrupt
   useEffect(() => {
     if (!isBrowser()) return;
-    load('lexlens_chats', []);
-  }, []);
+    if (params.get('reset') === '1') {
+      try { localStorage.removeItem('lexlens_chats'); } catch {}
+    }
+  }, [params]);
 
   if (!ready) return <div className="p-6 text-sm text-zinc-500">Loading…</div>;
 
   return (
     <div className="w-full flex">
-      <ChatSidebar activeId={id}/>
-      <ChatWindow/>
+      <Suspense fallback={<div className="p-4 text-sm text-zinc-500">Loading sidebar…</div>}>
+        <ChatSidebar activeId={id}/>
+      </Suspense>
+      <Suspense fallback={<div className="p-4 text-sm text-zinc-500">Loading chat…</div>}>
+        <ChatWindow/>
+      </Suspense>
     </div>
   );
 }
