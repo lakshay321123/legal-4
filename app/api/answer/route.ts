@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getContext, updateContext, extractContextBits, summarizeContext } from '@/lib/memory';
 
 /** ===============================
- * Prompts & small helpers
+ * Prompts & helpers
  * =============================== */
 const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
@@ -33,7 +33,7 @@ function looksVague(text: string) {
 
 const DISCLAIMER = '⚠️ Informational only — not a substitute for advice from a licensed advocate.';
 
-// Config via ENV
+// ENV config
 const PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();      // 'gemini' | 'openai'
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
@@ -58,7 +58,36 @@ function rateLimited(ip: string) {
 }
 
 /** ===============================
- * Gemini call (generateContent)
+ * Topic classification + context reset
+ * =============================== */
+type Topic =
+  | 'rent_agreement'        // tenancy / lease drafting
+  | 'legal_notice'          // legal notice
+  | 'consumer'              // consumer complaint
+  | 'constitution'          // Articles / fundamental rights
+  | 'criminal'              // FIR, bail, IPC/CrPC, cases on a person
+  | 'case_law'              // general case law queries
+  | 'other';
+
+function classifyTopic(q: string): Topic {
+  const s = q.toLowerCase();
+  if (/\brent\b|\brental\b|\blease\b/.test(s)) return 'rent_agreement';
+  if (/\blegal\s+notice\b/.test(s)) return 'legal_notice';
+  if (/\bconsumer\s+complaint|\bncdrc|\bdcdrc\b/.test(s)) return 'consumer';
+  if (/\barticle\s+\d+|fundamental\s+rights|constitution\b/.test(s)) return 'constitution';
+  if (/\bipc|crpc|fir|bail|charge\s*sheet|arrest|police\b/.test(s)) return 'criminal';
+  if (/\bcase\s+law|leading\s+cases|landmark\s+cases|citation\b/.test(s)) return 'case_law';
+  // simple “person cases” heuristic (e.g., “cases on Narendra Modi”)
+  if (/\bcases?\s+.*\b(on|against)\b/i.test(q)) return 'criminal';
+  return 'other';
+}
+
+function resetContext(userId: string) {
+  updateContext(userId, { intent: undefined, city: undefined, state: undefined, property: undefined, extras: [] });
+}
+
+/** ===============================
+ * Gemini / OpenAI callers
  * =============================== */
 async function callGemini(apiKey: string, model: string, system: string, userQ: string, ctxSummary?: string) {
   const sys = system.trim() + (ctxSummary ? `\n\nCONTEXT (authoritative, do not re-ask): ${ctxSummary}` : '');
@@ -81,9 +110,6 @@ async function callGemini(apiKey: string, model: string, system: string, userQ: 
   return parts.map((p: any) => p?.text ?? '').join('').trim() || 'No answer generated.';
 }
 
-/** ===============================
- * OpenAI call (fallback if you keep it)
- * =============================== */
 async function callOpenAI(apiKey: string, model: string, system: string, userQ: string, ctxSummary?: string) {
   const sys = system.trim() + (ctxSummary ? `\n\nCONTEXT (authoritative, do not re-ask): ${ctxSummary}` : '');
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -114,12 +140,10 @@ export async function POST(req: Request) {
     const q: string = (body.q ?? '').toString();
     const mode: 'citizen' | 'lawyer' = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
 
-    // Input check
     if (!q.trim()) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
     }
 
-    // Rate limit
     const ip = ipOf(req);
     if (rateLimited(ip)) {
       return NextResponse.json(
@@ -128,7 +152,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Greeting (no cost)
+    // Greetings (no spend)
     if (isGreeting(q)) {
       const suggestions = [
         'How to draft a basic rent agreement?',
@@ -148,18 +172,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ answer: lines.join('\n') });
     }
 
-    // ===== Context memory: extract + update =====
-    const prev = getContext(ip);
+    // ===== Topic switch detection =====
+    const prevCtx = getContext(ip);
+    const newTopic = classifyTopic(q);
+    const prevTopic = prevCtx.intent === 'rent_agreement'
+      ? 'rent_agreement'
+      : prevCtx.intent === 'legal_notice'
+      ? 'legal_notice'
+      : undefined;
+
+    // If user jumps topic (e.g., from rent agreement -> Modi cases), reset old context
+    if (prevTopic && newTopic && newTopic !== prevTopic) {
+      resetContext(ip);
+    }
+
+    // ===== Extract + update context from this message =====
     const bits = extractContextBits(q);
     const ctx = updateContext(ip, bits);
 
-    // If user intent looks like “rent agreement”, ensure ctx.intent is set
-    if (!ctx.intent && /\brent\s+agreement|rental\s+agreement|lease\s+agreement\b/i.test(q)) {
-      updateContext(ip, { intent: 'rent_agreement' });
+    // Ensure intent if text implies it
+    if (!ctx.intent) {
+      if (newTopic === 'rent_agreement') updateContext(ip, { intent: 'rent_agreement' });
+      else if (newTopic === 'legal_notice') updateContext(ip, { intent: 'legal_notice' });
     }
 
-    // Ask only for missing pieces (once)
-    const needsCityOrState = !ctx.city && !ctx.state;
+    // Ask only for missing pieces IF the query still requires them
+    const needsCityOrState = !ctx.city && !ctx.state && (newTopic === 'rent_agreement' || /rent|lease/i.test(q));
     const needsProperty = (ctx.intent === 'rent_agreement') && !ctx.property;
 
     if (looksVague(q) || needsCityOrState || needsProperty) {
@@ -178,7 +216,7 @@ export async function POST(req: Request) {
 
     // Build system prompt with authoritative CONTEXT so the model doesn't re-ask
     const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
-    const ctxSummary = summarizeContext(getContext(ip)); // re-read after updates
+    const ctxSummary = summarizeContext(getContext(ip)); // after updates
 
     // Call provider
     let answer: string;
