@@ -1,26 +1,34 @@
 import { NextResponse } from 'next/server';
-import * as cheerio from 'cheerio';
-import { JSDOM } from 'jsdom';
-import { Readability } from '@mozilla/readability';
-
-const MAX_CHARS = 12000;
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
-  const { url } = await req.json();
-  if (!url) return NextResponse.json({ error: 'url required' }, { status: 400 });
-
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'LexLensBot/1.0 (+https://example.com/bot)' }
-    });
+    const { url } = await req.json();
+    if (!url || typeof url !== 'string') {
+      return NextResponse.json({ error: 'Missing url' }, { status: 400 });
+    }
+
+    const res = await fetch(url, { redirect: 'follow' });
     const html = await res.text();
+
+    // Try Readability first (clean article)
+    const { JSDOM } = await import('jsdom');
     const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
-    const article = reader.parse();
-    let text = article?.textContent || cheerio.load(html)('body').text();
-    text = text.replace(/\s+/g, ' ').trim().slice(0, MAX_CHARS);
-    return NextResponse.json({ text });
+    const { Readability } = await import('@mozilla/readability');
+    const doc = new Readability(dom.window.document).parse();
+
+    let text = '';
+    if (doc?.textContent && doc.textContent.trim().length > 200) {
+      text = doc.textContent;
+    } else {
+      // Fallback to cheerio to grab visible text
+      const cheerio = await import('cheerio');
+      const $ = cheerio.load(html);
+      text = $('body').text().replace(/\s+/g, ' ').trim();
+    }
+
+    return NextResponse.json({ text: text.slice(0, 25000) });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'scrape failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to scrape' }, { status: 500 });
   }
 }
