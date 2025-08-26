@@ -3,42 +3,31 @@
 
 import { useState } from 'react';
 import ChatSidebar from '@/components/ChatSidebar';
-import ChatWindow from '@/components/ChatWindow';
+import SmartInput from '@/components/SmartInput';
+import Welcome from '@/components/Welcome';
+
+type Msg = { role: 'user' | 'assistant'; content: string };
 
 export default function HomeClient() {
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
-  const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<'citizen' | 'lawyer'>('citizen');
 
-  async function sendMessage() {
-    const q = input.trim();
-    if (!q || loading) return;
-
-    // show the user message immediately
-    setMessages((prev) => [...prev, { role: 'user', content: q }]);
-    setInput('');
+  async function ask(q: string) {
+    setMessages((m) => [...m, { role: 'user', content: q }]);
     setLoading(true);
-
     try {
       const res = await fetch('/api/answer', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, // IMPORTANT
-        body: JSON.stringify({ q, mode: 'citizen' }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q, mode }),
       });
-
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(txt || `Request failed (${res.status})`);
-      }
       const data = await res.json();
-      const answer = data?.answer ?? 'No answer.';
-      setMessages((prev) => [...prev, { role: 'assistant', content: answer }]);
+      const text = data?.answer ?? 'No answer.';
+      setMessages((m) => [...m, { role: 'assistant', content: text }]);
     } catch (e) {
       console.error(e);
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: '⚠️ Error talking to OpenAI. Check API key and logs.' },
-      ]);
+      setMessages((m) => [...m, { role: 'assistant', content: '⚠️ Error talking to server.' }]);
     } finally {
       setLoading(false);
     }
@@ -48,24 +37,48 @@ export default function HomeClient() {
     <div className="flex h-screen">
       <ChatSidebar />
       <div className="flex flex-col flex-1">
-        <ChatWindow messages={messages} />
-        <div className="p-4 border-t flex">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Ask about a law, section, or case…"
-            className="flex-1 border rounded px-3 py-2"
-          />
+        {/* Header with mode toggle */}
+        <div className="px-4 py-2 border-b flex items-center gap-2">
+          <span className="text-sm text-zinc-600">Mode:</span>
           <button
-            onClick={sendMessage}
-            disabled={loading}
-            className="ml-2 px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+            className={`text-sm rounded px-3 py-1 border ${mode === 'citizen' ? 'bg-zinc-100' : ''}`}
+            onClick={() => setMode('citizen')}
           >
-            {loading ? 'Sending…' : 'Send'}
+            Citizen
+          </button>
+          <button
+            className={`text-sm rounded px-3 py-1 border ${mode === 'lawyer' ? 'bg-zinc-100' : ''}`}
+            onClick={() => setMode('lawyer')}
+          >
+            Lawyer
           </button>
         </div>
+
+        {/* Messages area / Welcome */}
+        <div className="flex-1 overflow-auto p-4">
+          {messages.length === 0 ? (
+            <Welcome onPick={(q) => ask(q)} />
+          ) : (
+            <div className="space-y-3">
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={`max-w-[80ch] whitespace-pre-wrap rounded px-3 py-2 border ${
+                    m.role === 'user' ? 'bg-white' : 'bg-zinc-50'
+                  }`}
+                >
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-1">
+                    {m.role === 'user' ? 'You' : (mode === 'lawyer' ? 'Research' : 'LexLens')}
+                  </div>
+                  <div className="text-sm leading-6">{m.content}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <SmartInput onSend={ask} disabled={loading} />
       </div>
     </div>
   );
