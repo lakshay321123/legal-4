@@ -1,49 +1,33 @@
-// components/Markdown.tsx
 'use client';
-
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
+/** Renders answer markdown nicely (no more *** showing) */
 export default function Markdown({ children }: { children: string }) {
   return (
-    <div className="prose prose-slate max-w-none">
+    <div className="prose-custom">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
         components={{
-          // Use `any` for props to avoid TS complaining about `inline`
+          h1: (props) => <h2 className="mt-0" {...props} />,
           code: (props: any) => {
-            const { inline, className, children, ...rest } = props;
-            const text = String(children ?? '');
-
+            const { inline, children, className, ...rest } = props;
             if (inline) {
-              return (
-                <code
-                  className={`px-1 py-0.5 rounded bg-slate-100 ${className || ''}`}
-                  {...rest}
-                >
-                  {text}
-                </code>
-              );
+              return <code className="px-1 py-0.5 rounded bg-slate-100" {...rest}>{children}</code>;
             }
-
             return (
-              <pre className="rounded-lg border bg-slate-50 overflow-auto p-3 text-sm">
-                <code className={className} {...rest}>
-                  {text}
-                </code>
+              <pre className="rounded-xl border border-slate-200 bg-slate-50 p-3 overflow-auto">
+                <code className={className} {...rest}>{children}</code>
               </pre>
             );
           },
-          a: (props: any) => (
-            <a
-              {...props}
-              className="text-brand-600 underline"
-              target="_blank"
-              rel="noreferrer"
-            />
+          table: (props) => (
+            <div className="overflow-x-auto">{/* keep tables scrollable */}
+              <table className="min-w-[560px]" {...props} />
+            </div>
           ),
         }}
       >
