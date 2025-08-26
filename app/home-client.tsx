@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
-// Load heavy UI only on the client (no SSR) to avoid window/localStorage crashes
+// Load heavy UI only on the client to avoid SSR/window/localStorage crashes
 const ChatSidebar = dynamic(() => import('@/components/ChatSidebar'), { ssr: false });
 const ChatWindow  = dynamic(() => import('@/components/ChatWindow'), { ssr: false });
 
@@ -14,11 +14,10 @@ export default function HomeClient() {
   const params = useSearchParams();
   const id = params.get('id') ?? undefined;
 
-  // render only after mount to avoid hydration/client crashes
   const [ready, setReady] = useState(false);
   useEffect(() => { setReady(true); }, []);
 
-  // optional one-time reset if stored data is corrupt
+  // Optional one-time cleanup for corrupt saved data
   useEffect(() => {
     if (!isBrowser()) return;
     if (params.get('reset') === '1') {
