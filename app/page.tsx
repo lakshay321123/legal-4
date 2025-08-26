@@ -1,16 +1,14 @@
-'use client';
+// app/page.tsx
+import { Suspense } from 'react';
+import HomeClient from './home-client';
 
-import ChatSidebar from '@/components/ChatSidebar';
-import ChatWindow from '@/components/ChatWindow';
-import { useSearchParams } from 'next/navigation';
+export const dynamic = 'force-dynamic';  // avoid static prerender issues
+export const revalidate = 0;
 
-export default function HomePage() {
-  const params = useSearchParams();
-  const id = params.get('id') ?? undefined;
+export default function Page() {
   return (
-    <div className="w-full flex">
-      <ChatSidebar activeId={id}/>
-      <ChatWindow/>
-    </div>
+    <Suspense fallback={<div className="p-6 text-sm text-zinc-500">Loading…</div>}>
+      <HomeClient />
+    </Suspense>
   );
 }
