@@ -16,8 +16,6 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "types": ["node"],
-
-    // let imports like "@/lib/..." and "@/components/..." work everywhere
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
