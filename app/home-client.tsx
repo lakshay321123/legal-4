@@ -1,10 +1,17 @@
-app/
- ├─ page.tsx            ← the new server component with <Suspense>
- ├─ home-client.tsx     ← the new client component (with useSearchParams)
- ├─ library/
- ├─ search/
- ├─ api/
- ...
-components/
-lib/
-public/
+// app/home-client.tsx
+'use client';
+
+import ChatSidebar from '@/components/ChatSidebar';
+import ChatWindow from '@/components/ChatWindow';
+import { useSearchParams } from 'next/navigation';
+
+export default function HomeClient() {
+  const params = useSearchParams();
+  const id = params.get('id') ?? undefined;
+  return (
+    <div className="w-full flex">
+      <ChatSidebar activeId={id}/>
+      <ChatWindow/>
+    </div>
+  );
+}
