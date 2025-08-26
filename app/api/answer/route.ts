@@ -1,5 +1,6 @@
 // app/api/answer/route.ts
 import { NextResponse } from 'next/server';
+import { getContext, updateContext, extractContextBits, summarizeContext } from '@/lib/memory';
 
 /** ===============================
  * Prompts & small helpers
@@ -8,13 +9,16 @@ const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
 Use simple words, short paragraphs, step-by-step explanations, avoid legalese.
 Add a short "Not legal advice." line at the end.
-If the question is vague, ask 1–2 quick clarifying questions first.
+If the question is vague, ask 1–2 quick clarifying questions first (ONLY if those details are not provided in the context below).
+Always respect and use the provided CONTEXT if present, and do not ask again for what is already given.
 `;
 
 const SYSTEM_PROMPT_LAWYER = `
 You are a precise legal research assistant for lawyers.
 Structure: 1) Issues 2) Rules/Authorities (cite concisely) 3) Analysis 4) Practical Notes.
-Ask for missing key facts if needed. Keep it tight and neutral.
+Ask for missing key facts only if they are not present in the CONTEXT below.
+Prefer Indian law if not specified otherwise.
+Keep it tight and neutral.
 `;
 
 function isGreeting(text: string) {
@@ -29,7 +33,7 @@ function looksVague(text: string) {
 
 const DISCLAIMER = '⚠️ Informational only — not a substitute for advice from a licensed advocate.';
 
-// Config you can tweak via ENV without editing code
+// Config via ENV
 const PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();      // 'gemini' | 'openai'
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
@@ -56,42 +60,32 @@ function rateLimited(ip: string) {
 /** ===============================
  * Gemini call (generateContent)
  * =============================== */
-async function callGemini(apiKey: string, model: string, system: string, userQ: string) {
-  // Gemini uses the "contents" format. We put the system prompt as an initial part.
+async function callGemini(apiKey: string, model: string, system: string, userQ: string, ctxSummary?: string) {
+  const sys = system.trim() + (ctxSummary ? `\n\nCONTEXT (authoritative, do not re-ask): ${ctxSummary}` : '');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    // Keep temperature/token small-ish at first to avoid quotas
     body: JSON.stringify({
       contents: [
-        { role: 'user', parts: [{ text: system.trim() }] },
+        { role: 'user', parts: [{ text: sys }] },
         { role: 'user', parts: [{ text: userQ }] }
       ],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 700
-      }
+      generationConfig: { temperature: 0.2, maxOutputTokens: 700 }
     }),
   });
-
   const text = await res.text().catch(() => '');
-  if (!res.ok) {
-    // Surface the reason to help you debug quotas or model access
-    throw new Error(`Gemini ${res.status}: ${text.slice(0, 500)}`);
-  }
-
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${text.slice(0, 500)}`);
   const data = JSON.parse(text);
-  // Gemini returns candidates[0].content.parts[].text
   const parts = data?.candidates?.[0]?.content?.parts || [];
-  const answer = parts.map((p: any) => p?.text ?? '').join('').trim() || 'No answer generated.';
-  return answer;
+  return parts.map((p: any) => p?.text ?? '').join('').trim() || 'No answer generated.';
 }
 
 /** ===============================
  * OpenAI call (fallback if you keep it)
  * =============================== */
-async function callOpenAI(apiKey: string, model: string, system: string, userQ: string) {
+async function callOpenAI(apiKey: string, model: string, system: string, userQ: string, ctxSummary?: string) {
+  const sys = system.trim() + (ctxSummary ? `\n\nCONTEXT (authoritative, do not re-ask): ${ctxSummary}` : '');
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -100,18 +94,15 @@ async function callOpenAI(apiKey: string, model: string, system: string, userQ: 
       temperature: 0.2,
       max_tokens: 700,
       messages: [
-        { role: 'system', content: system },
+        { role: 'system', content: sys },
         { role: 'user', content: userQ },
       ],
     }),
   });
   const text = await res.text().catch(() => '');
-  if (!res.ok) {
-    throw new Error(`OpenAI ${res.status}: ${text.slice(0, 500)}`);
-  }
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${text.slice(0, 500)}`);
   const data = JSON.parse(text);
-  const answer = data?.choices?.[0]?.message?.content ?? 'No answer generated.';
-  return answer;
+  return data?.choices?.[0]?.message?.content ?? 'No answer generated.';
 }
 
 /** ===============================
@@ -128,7 +119,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
     }
 
-    // Soft rate limit
+    // Rate limit
     const ip = ipOf(req);
     if (rateLimited(ip)) {
       return NextResponse.json(
@@ -137,7 +128,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Free greeting / clarify without spending tokens
+    // Greeting (no cost)
     if (isGreeting(q)) {
       const suggestions = [
         'How to draft a basic rent agreement?',
@@ -156,22 +147,40 @@ export async function POST(req: Request) {
       ];
       return NextResponse.json({ answer: lines.join('\n') });
     }
-    if (looksVague(q)) {
-      const followups = mode === 'lawyer'
-        ? ['Jurisdiction & forum?', 'Relevant statutes/sections (if known)?', 'Timeline or key facts (brief)?']
-        : ['Which city/state applies?', 'Is this civil (money/contract) or criminal?', 'Any deadlines or documents already filed?'];
-      const msg = [
-        'I can help better with a bit more detail:',
-        ...followups.map((f) => `• ${f}`),
-        '',
-        'Or ask something like: "Steps to file police complaint for lost documents in Delhi."',
-      ].join('\n');
-      return NextResponse.json({ answer: msg });
+
+    // ===== Context memory: extract + update =====
+    const prev = getContext(ip);
+    const bits = extractContextBits(q);
+    const ctx = updateContext(ip, bits);
+
+    // If user intent looks like “rent agreement”, ensure ctx.intent is set
+    if (!ctx.intent && /\brent\s+agreement|rental\s+agreement|lease\s+agreement\b/i.test(q)) {
+      updateContext(ip, { intent: 'rent_agreement' });
     }
 
-    // Choose provider + compose prompt
-    const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
+    // Ask only for missing pieces (once)
+    const needsCityOrState = !ctx.city && !ctx.state;
+    const needsProperty = (ctx.intent === 'rent_agreement') && !ctx.property;
 
+    if (looksVague(q) || needsCityOrState || needsProperty) {
+      const missing: string[] = [];
+      if (needsCityOrState) missing.push('Which city/state applies?');
+      if (needsProperty) missing.push('What kind of property (house, apartment, shop, office, land)?');
+
+      if (missing.length) {
+        return NextResponse.json({
+          answer:
+            'Got it. To tailor the answer correctly, please confirm:\n' +
+            missing.map(m => `• ${m}`).join('\n'),
+        });
+      }
+    }
+
+    // Build system prompt with authoritative CONTEXT so the model doesn't re-ask
+    const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
+    const ctxSummary = summarizeContext(getContext(ip)); // re-read after updates
+
+    // Call provider
     let answer: string;
     if (PROVIDER === 'gemini') {
       const key = process.env.GEMINI_API_KEY;
@@ -181,7 +190,7 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callGemini(key, GEMINI_MODEL, system, q);
+      answer = await callGemini(key, GEMINI_MODEL, system, q, ctxSummary);
     } else {
       const key = process.env.OPENAI_API_KEY;
       if (!key) {
@@ -190,19 +199,15 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callOpenAI(key, OPENAI_MODEL, system, q);
+      answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary);
     }
 
     if (mode === 'citizen') answer += `\n\n${DISCLAIMER}`;
-    return NextResponse.json({ answer, sources: [] });
+    return NextResponse.json({ answer, context: getContext(ip), sources: [] });
   } catch (err: any) {
     console.error('[answer route error]', err?.message || err, err?.stack);
-    // Show a short diagnostic to help you fix quotas or access quickly
     return NextResponse.json(
-      {
-        answer: '⚠️ Error contacting AI provider.',
-        diagnostic: String(err?.message || err).slice(0, 500)
-      },
+      { answer: '⚠️ Error contacting AI provider.', diagnostic: String(err?.message || err).slice(0, 500) },
       { status: 500 }
     );
   }
