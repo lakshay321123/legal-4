@@ -1,3 +1,4 @@
+// app/home-client.tsx
 'use client';
 
 import { useState } from 'react';
@@ -5,40 +6,38 @@ import ChatSidebar from '@/components/ChatSidebar';
 import ChatWindow from '@/components/ChatWindow';
 
 export default function HomeClient() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function sendMessage() {
-    if (!input.trim()) return;
+    const q = input.trim();
+    if (!q || loading) return;
 
-    const userMessage = { role: 'user', content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    // show the user message immediately
+    setMessages((prev) => [...prev, { role: 'user', content: q }]);
     setInput('');
     setLoading(true);
 
     try {
       const res = await fetch('/api/answer', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ q: input, mode: 'citizen' }),
+        headers: { 'Content-Type': 'application/json' }, // IMPORTANT
+        body: JSON.stringify({ q, mode: 'citizen' }),
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to fetch answer');
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || `Request failed (${res.status})`);
       }
-
       const data = await res.json();
-      const aiMessage = { role: 'assistant', content: data.answer };
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (err: any) {
-      console.error(err);
+      const answer = data?.answer ?? 'No answer.';
+      setMessages((prev) => [...prev, { role: 'assistant', content: answer }]);
+    } catch (e) {
+      console.error(e);
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: '⚠️ Error talking to OpenAI. Check API key or server logs.' },
+        { role: 'assistant', content: '⚠️ Error talking to OpenAI. Check API key and logs.' },
       ]);
     } finally {
       setLoading(false);
@@ -56,7 +55,7 @@ export default function HomeClient() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Ask a question..."
+            placeholder="Ask about a law, section, or case…"
             className="flex-1 border rounded px-3 py-2"
           />
           <button
@@ -64,7 +63,7 @@ export default function HomeClient() {
             disabled={loading}
             className="ml-2 px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
           >
-            {loading ? 'Loading...' : 'Send'}
+            {loading ? 'Sending…' : 'Send'}
           </button>
         </div>
       </div>
