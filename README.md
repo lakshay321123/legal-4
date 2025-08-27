@@ -17,13 +17,18 @@ A simple, elegant, ChatGPT-style legal search interface with **New chat**, **Sea
 ```bash
 pnpm i     # or npm i or yarn
 cp .env.local.example .env.local
-# (optional) edit .env.local and add OPENAI_API_KEY=sk-...
+# (optional) edit .env.local and add GEMINI_API_KEY=... or OPENAI_API_KEY=sk-...
 
 pnpm dev   # then open http://localhost:3000
 ```
 
 ## Environment
-- `OPENAI_API_KEY` (optional): for real answers. Without it you'll see a demo answer with source links.
+- `AI_PROVIDER` (optional): choose `gemini` (default) or `openai`.
+- `GEMINI_API_KEY` (optional): used when `AI_PROVIDER=gemini`.
+- `GEMINI_MODEL` (optional): override the Gemini model (default `gemini-1.5-flash`).
+- `OPENAI_API_KEY` (optional): used when `AI_PROVIDER=openai`. Without it you'll see a demo answer with source links.
+
+Missing keys will produce the "❌ Missing GEMINI_API_KEY/OPENAI_API_KEY" error response in `/api/answer`.
 
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
@@ -43,6 +48,9 @@ pnpm dev   # then open http://localhost:3000
 
 Example `.env.local`:
 ```
+AI_PROVIDER=gemini # or openai
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-1.5-flash
 OPENAI_API_KEY=sk-...
 BING_API_KEY=...
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
