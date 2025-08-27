@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   }
 
   // Use Bing Web Search v7
-  const domainFilter = 'site:indiacode.nic.in OR site:egazette.nic.in OR site:sci.gov.in OR (site:gov.in "High Court")';
+  const domainFilter = DOMAINS.map((d) => `site:${d}`).join(' OR ');
   const q = `${query} ${domainFilter}`;
   const url = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(q)}&mkt=en-IN&count=10&responseFilter=Webpages`;
 
