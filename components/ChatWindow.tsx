@@ -4,6 +4,7 @@ import MessageBubble from './MessageBubble';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type Doc = { name: string; type: string; text: string };
+type SearchResult = { title: string; url: string; snippet: string };
 
 export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -24,11 +25,42 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     setInput('');
     setMessages(m => [...m, { role: 'user', content: q }]);
     setLoading(true);
+    let sources: SearchResult[] = [];
+    // fetch web results with timeout so answer isn't blocked forever
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const sRes = await fetch('/api/websearch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+        signal: controller.signal,
+      }).catch(() => null);
+      clearTimeout(timeout);
+      if (sRes && sRes.ok) {
+        const sData = await sRes.json().catch(() => null);
+        if (sData?.results?.length) {
+          sources = sData.results as SearchResult[];
+          const top = sources
+            .slice(0, 3)
+            .map((r: SearchResult, i: number) => `${i + 1}. [${r.title}](${r.url})`)
+            .join('\n');
+          setMessages(m => [...m, { role: 'assistant', content: `🔎 Top links:\n${top}` }]);
+        } else if (sData?.message) {
+          setMessages(m => [...m, { role: 'assistant', content: `⚠️ ${sData.message}` }]);
+        }
+      } else {
+        setMessages(m => [...m, { role: 'assistant', content: '⚠️ Web search failed.' }]);
+      }
+    } catch {
+      setMessages(m => [...m, { role: 'assistant', content: '⚠️ Web search failed.' }]);
+    }
+
     try {
       const res = await fetch('/api/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q, mode, docs }),
+        body: JSON.stringify({ q, mode, docs, sources }),
       });
       const data = await res.json();
       const text = data?.answer ?? 'No answer.';
