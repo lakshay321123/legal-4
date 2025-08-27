@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContext, updateContext, extractContextBits, summarizeContext, clearContext } from '@/lib/memory';
+import { multiSearch, type SearchResult } from '@/lib/multi-search';
 
 const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
@@ -148,10 +149,26 @@ export async function POST(req: Request) {
 
     const ctxSummary = summarizeContext(getContext(ip));
 
-    // compact doc extracts
-    const docBits = docs.length
-      ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n')
-      : '';
+    // web search for additional context
+    let searchResults: SearchResult[] = [];
+    try {
+      const { results } = await multiSearch(q);
+      searchResults = Array.isArray(results) ? results : [];
+    } catch {
+      searchResults = [];
+    }
+    const topResults = searchResults.slice(0, 3);
+    const searchBits = topResults
+      .map(r => `【${r.title}】\n${r.url}\n${smallExtract(r.snippet || '', 400)}`)
+      .join('\n\n');
+
+    // compact doc extracts (uploads + search snippets)
+    const docBits = [
+      docs.length ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n') : '',
+      searchBits,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
 
@@ -177,7 +194,11 @@ export async function POST(req: Request) {
     }
 
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
-    return NextResponse.json({ answer, context: getContext(ip), sources: [] });
+    return NextResponse.json({
+      answer,
+      context: getContext(ip),
+      sources: topResults.map(r => ({ title: r.title, url: r.url, snippet: r.snippet })),
+    });
   } catch (err: any) {
     console.error('[answer route error]', err?.message || err, err?.stack);
     return NextResponse.json(
