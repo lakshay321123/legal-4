@@ -26,12 +26,14 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     setMessages(m => [...m, { role: 'user', content: q }]);
     setLoading(true);
     try {
-      // Kick off a web search and parse the results
+      // Kick off a web search and parse the results. If it fails, continue with empty results.
       const searchPromise: Promise<{ results: SearchResult[] }> = fetch('/api/websearch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: q }),
-      }).then(r => r.json());
+      })
+        .then(r => r.json())
+        .catch(() => ({ results: [] as SearchResult[] }));
 
       // Show top web results as soon as they arrive
       searchPromise.then(data => {
@@ -48,11 +50,11 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
       });
 
       // Wait for search results to ground the answer
-      const sources = await searchPromise;
+      const { results } = await searchPromise;
       const res = await fetch('/api/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q, mode, docs, sources: sources.results || [] }),
+        body: JSON.stringify({ q, mode, docs, sources: results }),
       });
       const data = await res.json();
       const text = data?.answer ?? 'No answer.';
