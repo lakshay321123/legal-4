@@ -185,13 +185,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ answer, context: getContext(ip), sources: [] });
   } catch (err: any) {
     const msg = String(err?.message || err);
-    const upstream = msg.includes(':') ? msg.split(':').slice(1).join(':').trim() : msg;
+    const upstream = msg.includes(':') ? msg.slice(msg.indexOf(':') + 1).trim() : msg;
     console.error('[answer route error]', { provider: PROVIDER, q, mode, docCount: docs.length, ip }, msg, err?.stack);
     return NextResponse.json(
       {
         answer: '⚠️ Error contacting AI provider.',
         provider: PROVIDER,
-        upstream: upstream.slice(0, 500),
+        upstream: upstream.slice(0, 200),
       },
       { status: 500 }
     );
