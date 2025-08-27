@@ -1,21 +1,20 @@
 import { NextResponse } from 'next/server';
-export const runtime = 'nodejs'; // pdf-parse/mammoth need Node
+export const runtime = 'edge';
 
 type Doc = { name: string; type: string; text: string };
 
-async function readPdf(buf: Buffer) {
-  const pdfParse = (await import('pdf-parse')).default as any;
-  const data = await pdfParse(buf);
+async function sendToParser(file: File, name: string) {
+  const url = process.env.PARSER_SERVICE_URL;
+  if (!url) return '';
+  const fd = new FormData();
+  fd.append('file', file, name);
+  const res = await fetch(url, { method: 'POST', body: fd });
+  if (!res.ok) return '';
+  const data = await res.json().catch(() => ({}));
   return (data?.text as string) || '';
 }
 
-async function readDocx(buf: Buffer) {
-  const mammoth = await import('mammoth');
-  const res = await mammoth.extractRawText({ buffer: buf });
-  return (res?.value as string) || '';
-}
-
-async function readImageToHint(_buf: Buffer) {
+async function readImageToHint(_buf: ArrayBuffer) {
   // For now: we don’t OCR; just a stub note.
   return '[Image attached: describe its legal context in your answer.]';
 }
@@ -26,21 +25,18 @@ export async function POST(req: Request) {
   const out: Doc[] = [];
 
   for (const f of files) {
-    const ab = await f.arrayBuffer();
-    const buf = Buffer.from(ab);
     const name = f.name || 'file';
     const lc = name.toLowerCase();
 
     let text = '';
     try {
-      if (lc.endsWith('.pdf')) {
-        text = await readPdf(buf);
-      } else if (lc.endsWith('.docx')) {
-        text = await readDocx(buf);
+      if (lc.endsWith('.pdf') || lc.endsWith('.docx')) {
+        text = await sendToParser(f, name);
       } else if (lc.endsWith('.txt')) {
-        text = buf.toString('utf8');
+        const ab = await f.arrayBuffer();
+        text = new TextDecoder().decode(ab);
       } else if (f.type.startsWith('image/')) {
-        text = await readImageToHint(buf);
+        text = await readImageToHint(await f.arrayBuffer());
       } else {
         text = ''; // unsupported
       }
