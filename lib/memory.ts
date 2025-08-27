@@ -25,7 +25,51 @@ export type Context = {
 
 const memory = new Map<string, Context>();
 
+type Config = {
+  maxEntries: number;
+  maxAgeMs: number;
+  purgeIntervalMs: number;
+};
+
+let config: Config = {
+  maxEntries: 100,
+  maxAgeMs: 15 * 60 * 1000, // 15 minutes
+  purgeIntervalMs: 60 * 1000,
+};
+
+let purgeTimer: ReturnType<typeof setInterval>;
+
+function purgeStale() {
+  const now = Date.now();
+  for (const [key, ctx] of memory) {
+    if (ctx.updatedAt && now - ctx.updatedAt > config.maxAgeMs) memory.delete(key);
+  }
+  if (memory.size > config.maxEntries) {
+    const entries = [...memory.entries()].sort(
+      (a, b) => (a[1].updatedAt ?? 0) - (b[1].updatedAt ?? 0)
+    );
+    while (memory.size > config.maxEntries && entries.length) {
+      const [k] = entries.shift()!;
+      memory.delete(k);
+    }
+  }
+}
+
+function startPurgeTimer() {
+  if (purgeTimer) clearInterval(purgeTimer);
+  purgeTimer = setInterval(purgeStale, config.purgeIntervalMs);
+  purgeTimer.unref();
+}
+
+startPurgeTimer();
+
+export function configureMemory(opts: Partial<Config>) {
+  config = { ...config, ...opts };
+  startPurgeTimer();
+}
+
 export function getContext(userId: string): Context {
+  purgeStale();
   return memory.get(userId) ?? {};
 }
 
@@ -33,12 +77,20 @@ export function updateContext(userId: string, patch: Partial<Context>) {
   const prev = memory.get(userId) ?? {};
   const next: Context = { ...prev, ...patch, updatedAt: Date.now() };
   memory.set(userId, next);
+  purgeStale();
   return next;
 }
 
 export function clearContext(userId: string) {
   memory.set(userId, { updatedAt: Date.now(), extras: [] });
+  purgeStale();
 }
+
+export function memorySize() {
+  return memory.size;
+}
+
+export { purgeStale };
 
 const STATES = [
   'andhra pradesh','arunachal pradesh','assam','bihar','chhattisgarh','goa','gujarat','haryana','himachal pradesh',
