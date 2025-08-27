@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import MessageBubble from './MessageBubble';
+import type { SourceLink } from '@/lib/types';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type Doc = { name: string; type: string; text: string };
@@ -11,6 +12,8 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
   const [loading, setLoading] = useState(false);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [sources, setSources] = useState<SourceLink[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -24,19 +27,56 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     setInput('');
     setMessages(m => [...m, { role: 'user', content: q }]);
     setLoading(true);
+    setSources([]);
     try {
+      // show temporary searching status
+      setMessages(m => [...m, { role: 'assistant', content: 'Searching…' }]);
+      setSearching(true);
+
+      let webDocs: Doc[] = [];
+      let webSources: SourceLink[] = [];
+      try {
+        const r = await fetch('/api/websearch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        });
+        const data = await r.json();
+        webSources = Array.isArray(data?.results) ? data.results.slice(0, 3) : [];
+
+        for (const s of webSources) {
+          try {
+            const scr = await fetch('/api/scrape', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: s.url }),
+            });
+            const scrData = await scr.json();
+            if (scrData?.text) {
+              webDocs.push({ name: s.title, type: 'web', text: scrData.text });
+            }
+          } catch {}
+        }
+      } catch {}
+
+      setSearching(false);
+      // remove the 'Searching…' placeholder
+      setMessages(m => m.slice(0, -1));
+
       const res = await fetch('/api/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q, mode, docs }),
+        body: JSON.stringify({ q, mode, docs: [...docs, ...webDocs] }),
       });
       const data = await res.json();
       const text = data?.answer ?? 'No answer.';
       setMessages(m => [...m, { role: 'assistant', content: text }]);
+      setSources(webSources);
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: '⚠️ Error talking to server.' }]);
     } finally {
       setLoading(false);
+      setSearching(false);
     }
   }
 
@@ -72,6 +112,7 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
   async function clearChat() {
     setMessages([]);
     setDocs([]);
+    setSources([]);
     setInput('');
     try { await fetch('/api/clear', { method: 'POST' }); } catch {}
     textareaRef.current?.focus();
@@ -90,6 +131,23 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
             {messages.map((m, i) => (
               <MessageBubble key={i} role={m.role} content={m.content} />
             ))}
+            {sources.length > 0 && (
+              <div className="pt-3 border-t mt-3">
+                <div className="text-xs font-medium mb-2">Sources</div>
+                <ul className="space-y-1 text-xs">
+                  {sources.map((s, i) => (
+                    <li key={i}>
+                      <a className="text-brand hover:underline" href={s.url} target="_blank" rel="noopener noreferrer">
+                        {s.title}
+                      </a>
+                      {s.snippet && (
+                        <div className="text-[11px] text-slate-600">{s.snippet}</div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -159,7 +217,7 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
             onClick={send}
             title="Send"
           >
-            {loading ? 'Sending…' : 'Send'}
+            {searching ? 'Searching…' : loading ? 'Sending…' : 'Send'}
           </button>
         </div>
       </div>
