@@ -3,6 +3,17 @@ export const runtime = 'nodejs'; // pdf-parse/mammoth need Node
 
 type Doc = { name: string; type: string; text: string };
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+]);
+
 async function readPdf(buf: Buffer) {
   const pdfParse = (await import('pdf-parse')).default as any;
   const data = await pdfParse(buf);
@@ -26,18 +37,34 @@ export async function POST(req: Request) {
   const out: Doc[] = [];
 
   for (const f of files) {
+    const name = f.name || 'file';
+    if (f.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `File ${name} exceeds 5MB limit.` },
+        { status: 400 }
+      );
+    }
+    if (!ALLOWED_MIME_TYPES.has(f.type)) {
+      return NextResponse.json(
+        { error: `File type ${f.type || 'unknown'} is not allowed.` },
+        { status: 400 }
+      );
+    }
     const ab = await f.arrayBuffer();
     const buf = Buffer.from(ab);
-    const name = f.name || 'file';
     const lc = name.toLowerCase();
 
     let text = '';
     try {
-      if (lc.endsWith('.pdf')) {
+      if (f.type === 'application/pdf' || lc.endsWith('.pdf')) {
         text = await readPdf(buf);
-      } else if (lc.endsWith('.docx')) {
+      } else if (
+        f.type ===
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        lc.endsWith('.docx')
+      ) {
         text = await readDocx(buf);
-      } else if (lc.endsWith('.txt')) {
+      } else if (f.type === 'text/plain' || lc.endsWith('.txt')) {
         text = buf.toString('utf8');
       } else if (f.type.startsWith('image/')) {
         text = await readImageToHint(buf);
