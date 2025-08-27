@@ -2,7 +2,11 @@
 import { useEffect, useRef, useState } from 'react';
 import MessageBubble from './MessageBubble';
 
-type Msg = { role: 'user' | 'assistant'; content: string };
+type Msg = {
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: Array<{ title: string; url: string }>;
+};
 type Doc = { name: string; type: string; text: string };
 
 export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
@@ -25,14 +29,28 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     setMessages(m => [...m, { role: 'user', content: q }]);
     setLoading(true);
     try {
+      // first fetch web search results for the query
+      let webResults: Array<{ title: string; url: string; snippet?: string }> = [];
+      try {
+        const webRes = await fetch('/api/websearch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        });
+        const webData = await webRes.json();
+        if (Array.isArray(webData?.results)) webResults = webData.results;
+      } catch {}
+
+      // send question along with web results to answer API
       const res = await fetch('/api/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q, mode, docs }),
+        body: JSON.stringify({ q, mode, docs, webResults }),
       });
       const data = await res.json();
       const text = data?.answer ?? 'No answer.';
-      setMessages(m => [...m, { role: 'assistant', content: text }]);
+      const sources = Array.isArray(data?.sources) ? data.sources : undefined;
+      setMessages(m => [...m, { role: 'assistant', content: text, sources }]);
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: '⚠️ Error talking to server.' }]);
     } finally {
@@ -88,7 +106,7 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
         ) : (
           <div className="space-y-3">
             {messages.map((m, i) => (
-              <MessageBubble key={i} role={m.role} content={m.content} />
+              <MessageBubble key={i} role={m.role} content={m.content} sources={m.sources} />
             ))}
           </div>
         )}
