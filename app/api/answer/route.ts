@@ -25,7 +25,8 @@ function isGreeting(text: string) {
 const DISCLAIMER = '⚠️ Informational only — not a substitute for advice from a licensed advocate.';
 
 // env
-const PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+// Default to OpenAI to avoid failing when only OPENAI_API_KEY is set.
+const PROVIDER = (process.env.AI_PROVIDER || 'openai').toLowerCase();
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 
@@ -165,7 +166,7 @@ export async function POST(req: Request) {
         );
       }
       answer = await callGemini(key, GEMINI_MODEL, system, q, ctxSummary, docBits);
-    } else {
+    } else if (PROVIDER === 'openai') {
       const key = process.env.OPENAI_API_KEY;
       if (!key) {
         return NextResponse.json(
@@ -174,6 +175,11 @@ export async function POST(req: Request) {
         );
       }
       answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits);
+    } else {
+      return NextResponse.json(
+        { answer: `❌ Unknown AI provider "${PROVIDER}". Set AI_PROVIDER to 'openai' or 'gemini'.` },
+        { status: 500 }
+      );
     }
 
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
