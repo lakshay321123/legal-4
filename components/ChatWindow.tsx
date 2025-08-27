@@ -40,7 +40,7 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     }
   }
 
-  // Enter inserts newline; use button to send
+  // Prevent newline on Enter; use the Send button or Shift+Enter for new lines
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault(); // don’t send on Enter
