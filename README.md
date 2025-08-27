@@ -24,11 +24,11 @@ pnpm dev   # then open http://localhost:3000
 ```
 
 ## Environment
-- `AI_PROVIDER` (optional): choose your AI backend (`gemini` or `openai`); defaults to `gemini`.
-- `GEMINI_API_KEY` (optional): required when using Gemini as the provider.
-- `GEMINI_MODEL` (optional): Gemini model to use; defaults to `gemini-1.5-flash`.
-- `OPENAI_API_KEY` (optional): required when using OpenAI; otherwise you'll see a demo answer with source links.
-- `OPENAI_MODEL` (optional): OpenAI model to use; defaults to `gpt-4o`.
+- `AI_PROVIDER` (default `gemini`): set to `openai` to use OpenAI instead.
+- `GEMINI_API_KEY`: required when `AI_PROVIDER=gemini`.
+- `GEMINI_MODEL` (optional, default `gemini-1.5-flash`): Gemini model to use.
+- `OPENAI_API_KEY`: required when `AI_PROVIDER=openai`; otherwise you'll see demo answers.
+- `OPENAI_MODEL` (optional, default `gpt-4o`): OpenAI model to use.
 
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
@@ -50,11 +50,15 @@ pnpm dev   # then open http://localhost:3000
 
 Example `.env.local`:
 ```
+# Gemini (default)
 AI_PROVIDER=gemini
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-1.5-flash
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o
+
+# OpenAI (uncomment to use)
+# AI_PROVIDER=openai
+# OPENAI_API_KEY=sk-...
+# OPENAI_MODEL=gpt-4o
 BING_API_KEY=...
 GOOGLE_API_KEY=...
 GOOGLE_CSE_ID=...
