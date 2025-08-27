@@ -32,7 +32,7 @@ export default function LibraryPage() {
               <ul className="mt-3 space-y-1">
                 {m.sources.map((s,i)=>(
                   <li key={i} className="text-xs">
-                    <a className="text-brand hover:underline" href={s.url} target="_blank">{s.title}</a>{' '}
+                    <a className="text-zinc-700 hover:underline" href={s.url} target="_blank">{s.title}</a>{' '}
                     {s.tag && <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-zinc-100 rounded">{s.tag}</span>}
                   </li>
                 ))}
