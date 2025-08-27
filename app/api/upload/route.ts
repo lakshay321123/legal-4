@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 export const runtime = 'nodejs'; // pdf-parse/mammoth need Node
 
+// Upload limits: max of 5 files, each up to 5MB
+const MAX_FILES = 5;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 type Doc = { name: string; type: string; text: string };
 
 async function readPdf(buf: Buffer) {
@@ -23,6 +27,13 @@ async function readImageToHint(_buf: Buffer) {
 export async function POST(req: Request) {
   const form = await req.formData();
   const files = form.getAll('files') as File[];
+  // Enforce upload limits
+  if (files.length > MAX_FILES || files.some((f) => f.size > MAX_FILE_SIZE)) {
+    return NextResponse.json(
+      { error: 'File too large/too many files' },
+      { status: 400 },
+    );
+  }
   const out: Doc[] = [];
 
   for (const f of files) {
