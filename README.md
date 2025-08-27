@@ -25,6 +25,16 @@ pnpm dev   # then open http://localhost:3000
 ## Environment
 - `OPENAI_API_KEY` (optional): for real answers. Without it you'll see a demo answer with source links.
 
+## File uploads
+The `/api/upload` endpoint accepts the following file types up to 5 MB each:
+
+- PDF (`application/pdf`)
+- Word documents (`.docx`)
+- Plain text (`text/plain`)
+- Images (`image/png`, `image/jpeg`, `image/gif`, `image/webp`)
+
+Files exceeding the size limit or using other formats return **400 Bad Request**.
+
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
 - Server storage (Postgres) and auth
