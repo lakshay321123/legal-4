@@ -7,8 +7,23 @@ export async function POST(req: Request) {
     if (!url || typeof url !== 'string') {
       return NextResponse.json({ error: 'Missing url' }, { status: 400 });
     }
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return NextResponse.json({ error: 'Invalid url' }, { status: 400 });
+    }
 
-    const res = await fetch(url, { redirect: 'follow' });
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return NextResponse.json({ error: 'Invalid protocol' }, { status: 400 });
+    }
+
+    const allowedDomains = ['example.com'];
+    if (!allowedDomains.includes(parsedUrl.hostname)) {
+      return NextResponse.json({ error: 'Domain not allowed' }, { status: 400 });
+    }
+
+    const res = await fetch(parsedUrl.toString(), { redirect: 'follow' });
     const html = await res.text();
 
     // Try Readability first (clean article)
