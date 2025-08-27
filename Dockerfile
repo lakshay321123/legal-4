@@ -2,7 +2,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* .npmrc* ./
-RUN npm i --prefer-offline --no-audit --progress=false || true
+RUN npm install
 
 FROM node:20-alpine AS builder
 WORKDIR /app
