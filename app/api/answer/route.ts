@@ -89,17 +89,22 @@ function smallExtract(s: string, max = 1200) {
 }
 
 export async function POST(req: Request) {
+  let body: any = {};
+  let q = '';
+  let mode: 'citizen' | 'lawyer' = 'citizen';
+  let docs: Array<{ name: string; type: string; text: string }> = [];
+  let ip = 'anon';
   try {
-    const body = await req.json().catch(() => ({}));
-    const q: string = (body.q ?? '').toString();
-    const mode: 'citizen' | 'lawyer' = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
-    const docs: Array<{ name: string; type: string; text: string }> = Array.isArray(body.docs) ? body.docs : [];
+    body = await req.json().catch(() => ({}));
+    q = (body.q ?? '').toString();
+    mode = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
+    docs = Array.isArray(body.docs) ? body.docs : [];
 
     if (!q.trim()) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
     }
 
-    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';
+    ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';
 
     // greeting shortcut
     if (isGreeting(q)) {
@@ -179,9 +184,16 @@ export async function POST(req: Request) {
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
     return NextResponse.json({ answer, context: getContext(ip), sources: [] });
   } catch (err: any) {
-    console.error('[answer route error]', err?.message || err, err?.stack);
+    const msg = String(err?.message || err);
+    const upstream = msg.includes(':') ? msg.split(':').slice(1).join(':').trim() : msg;
+    console.error('[answer route error]', { provider: PROVIDER, q, mode, docsLen: docs.length, ip }, msg, err?.stack);
     return NextResponse.json(
-      { answer: '⚠️ Error contacting AI provider.', diagnostic: String(err?.message || err).slice(0, 500) },
+      {
+        answer: '⚠️ Error contacting AI provider.',
+        provider: PROVIDER,
+        upstream: upstream.slice(0, 500),
+        diagnostic: msg.slice(0, 500),
+      },
       { status: 500 }
     );
   }
