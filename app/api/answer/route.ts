@@ -79,7 +79,7 @@ async function callOpenAI(apiKey: string, model: string, system: string, userQ: 
 // Intent helpers
 function intentFrom(text: string): 'rent_agreement' | 'other' {
   const s = text.toLowerCase();
-  return /\brent\s+agreement|rental\s+agreement|lease\s+agreement\b/.test(s)
+  return /\b(?:rent|rental|lease)\s+agreement\b/.test(s)
     ? 'rent_agreement'
     : 'other';
 }
