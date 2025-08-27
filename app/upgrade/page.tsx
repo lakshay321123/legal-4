@@ -1,4 +1,27 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+const url = 'https://lexlens.ai/upgrade';
+
+export const metadata: Metadata = {
+  title: 'Upgrade – LexLens',
+  description: 'Compare LexLens plans and unlock Lawyer mode.',
+  alternates: {
+    canonical: url,
+  },
+  openGraph: {
+    title: 'Upgrade – LexLens',
+    description: 'Compare LexLens plans and unlock Lawyer mode.',
+    url,
+    siteName: 'LexLens',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Upgrade – LexLens',
+    description: 'Compare LexLens plans and unlock Lawyer mode.',
+  },
+};
 
 export default function UpgradePage() {
   return (
@@ -37,5 +60,5 @@ export default function UpgradePage() {
       </div>
       <p className="text-xs text-zinc-500 mt-6">This is a placeholder page. Billing will be wired with Stripe (test mode) when you’re ready.</p>
     </div>
-  )
+  );
 }
