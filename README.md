@@ -40,6 +40,7 @@ pnpm dev   # then open http://localhost:3000
 ## Optional retrieval keys
 - `BING_API_KEY` – for official-domain web search (India Code, e-Gazette, Supreme Court, etc.).
 - `GOOGLE_API_KEY` and `GOOGLE_CSE_ID` – enable Google Custom Search as an additional source.
+- `GEMINI_SEARCH_KEY` – API key for Gemini Search to enable Google’s experimental search features.
 - `LEGAL_DB_SEARCH_URL` – HTTP endpoint for any in-house legal database search API.
 - `NEXT_PUBLIC_BASE_URL` – set this to your deployed base URL so the server can call its own `/api/scrape` in production.
 - `PREFER_HINDI=1` – environment flag to prefer Hindi for Citizen answers.
@@ -50,7 +51,16 @@ OPENAI_API_KEY=sk-...
 BING_API_KEY=...
 GOOGLE_API_KEY=...
 GOOGLE_CSE_ID=...
+GEMINI_SEARCH_KEY=...
 LEGAL_DB_SEARCH_URL=https://legal.example.com/search
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 # PREFER_HINDI=1
 ```
+
+### GEMINI Search key
+
+The `GEMINI_SEARCH_KEY` powers the app's Gemini-based web search.
+
+1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey) and generate a new API key.
+2. In Vercel, open your project’s **Settings → Environment Variables** and add `GEMINI_SEARCH_KEY` with this value.
+3. Redeploy the project so the new key takes effect.
