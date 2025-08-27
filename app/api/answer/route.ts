@@ -18,8 +18,11 @@ Keep it tight and neutral.
 `;
 
 function isGreeting(text: string) {
-  const s = text.toLowerCase().trim();
-  return ['hi','hello','hey','namaste','good morning','good afternoon','good evening'].some(w => s.startsWith(w));
+  const s = text
+    .toLowerCase()
+    .replace(/^[\s\p{P}\p{S}]+|[\s\p{P}\p{S}]+$/gu, '')
+    .trim();
+  return ['hi','hello','hey','namaste','good morning','good afternoon','good evening'].includes(s);
 }
 
 const DISCLAIMER = '⚠️ Informational only — not a substitute for advice from a licensed advocate.';
