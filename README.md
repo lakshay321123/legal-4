@@ -23,7 +23,9 @@ pnpm dev   # then open http://localhost:3000
 ```
 
 ## Environment
-- `OPENAI_API_KEY` (optional): for real answers. Without it you'll see a demo answer with source links.
+- `AI_PROVIDER` (optional): `openai` (default) or `gemini`.
+- `OPENAI_API_KEY` (optional): for OpenAI answers. Without it you'll see a demo answer with source links.
+- `GEMINI_API_KEY` (required if `AI_PROVIDER=gemini`): for Google Gemini answers.
 
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
@@ -43,7 +45,11 @@ pnpm dev   # then open http://localhost:3000
 
 Example `.env.local`:
 ```
+AI_PROVIDER=openai
 OPENAI_API_KEY=sk-...
+# For Gemini instead:
+# AI_PROVIDER=gemini
+# GEMINI_API_KEY=...
 BING_API_KEY=...
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 # PREFER_HINDI=1
