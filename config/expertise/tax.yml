@@ -1,0 +1,11 @@
+name: tax
+statutes:
+  - Income Tax Act, 1961
+  - Goods and Services Tax Act, 2017
+terminology:
+  - assessment year
+  - input tax credit
+  - depreciation
+reasoning_patterns:
+  - Analyze taxable event and applicable exemptions.
+  - Interpret fiscal statutes strictly while favoring taxpayer if ambiguity.

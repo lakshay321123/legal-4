@@ -1,0 +1,11 @@
+name: civil
+statutes:
+  - Code of Civil Procedure, 1908
+  - Specific Relief Act, 1963
+terminology:
+  - injunction
+  - damages
+  - tort
+reasoning_patterns:
+  - Determine cause of action and legal remedy.
+  - Balance equities and apply precedent.

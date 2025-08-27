@@ -1,0 +1,11 @@
+name: criminal
+statutes:
+  - Indian Penal Code, 1860
+  - Code of Criminal Procedure, 1973
+terminology:
+  - FIR
+  - bail
+  - mens rea
+reasoning_patterns:
+  - Evaluate actus reus and mens rea.
+  - Consider admissibility of evidence and burden of proof.
