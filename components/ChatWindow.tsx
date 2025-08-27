@@ -79,23 +79,8 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
-      {/* Conversation */}
-      <div className="flex-1 overflow-auto p-5">
-        {messages.length === 0 ? (
-          <div className="text-sm text-slate-500">
-            👋 Ask about a law, section, or case. Example: <em>“Draft a rent agreement for a Delhi apartment.”</em>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {messages.map((m, i) => (
-              <MessageBubble key={i} role={m.role} content={m.content} />
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Composer */}
-      <div className="border-t p-4 space-y-3">
+      <div className="border-b p-4 space-y-3">
         {/* attachments */}
         <div className="flex gap-2">
           <button
@@ -162,6 +147,21 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
             {loading ? 'Sending…' : 'Send'}
           </button>
         </div>
+      </div>
+
+      {/* Conversation */}
+      <div className="flex-1 overflow-auto p-5">
+        {messages.length === 0 ? (
+          <div className="text-sm text-slate-500">
+            👋 Ask about a law, section, or case. Example: <em>“Draft a rent agreement for a Delhi apartment.”</em>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {messages.map((m, i) => (
+              <MessageBubble key={i} role={m.role} content={m.content} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
