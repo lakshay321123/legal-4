@@ -24,6 +24,8 @@ pnpm dev   # then open http://localhost:3000
 
 ## Environment
 - `OPENAI_API_KEY` (optional): for real answers. Without it you'll see a demo answer with source links.
+- `PARSER_SERVICE_URL` – URL of the microservice that extracts text from uploaded PDF or DOCX files.
+- `SCRAPER_SERVICE_URL` – URL of the microservice that cleans and extracts article text from web pages.
 
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
