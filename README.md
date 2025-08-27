@@ -24,11 +24,11 @@ pnpm dev   # then open http://localhost:3000
 ```
 
 ## Environment
-- `AI_PROVIDER` (default `gemini`): set to `openai` to use OpenAI instead.
-- `GEMINI_API_KEY`: required when `AI_PROVIDER=gemini`.
-- `GEMINI_MODEL` (optional, default `gemini-1.5-flash`): Gemini model to use.
-- `OPENAI_API_KEY`: required when `AI_PROVIDER=openai`; otherwise you'll see demo answers.
-- `OPENAI_MODEL` (optional, default `gpt-4o`): OpenAI model to use.
+- `AI_PROVIDER` – LLM provider (`gemini` by default; set to `openai` to enable OpenAI).
+- `GEMINI_API_KEY` – required when `AI_PROVIDER=gemini`.
+- `GEMINI_MODEL` – optional, default `gemini-1.5-flash`.
+- `OPENAI_API_KEY` – required when `AI_PROVIDER=openai`; otherwise you'll see demo answers.
+- `OPENAI_MODEL` – optional, default `gpt-4o`.
 
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
