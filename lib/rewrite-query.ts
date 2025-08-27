@@ -15,10 +15,7 @@ export async function rewriteQuery(q: string): Promise<string> {
           model: OPENAI_MODEL,
           temperature: 0,
           max_tokens: 20,
-          messages: [
-            { role: 'system', content: 'You rewrite search queries into concise search engine strings.' },
-            { role: 'user', content: q }
-          ],
+          messages: [{ role: 'user', content: prompt }],
         }),
       }).catch(() => null);
       const data = await res?.json().catch(() => ({}));
@@ -43,8 +40,9 @@ export async function rewriteQuery(q: string): Promise<string> {
         body: JSON.stringify(body),
       }).catch(() => null);
       const data = await res?.json().catch(() => ({}));
-      const parts = data?.candidates?.[0]?.content?.parts || [];
-      const text = parts.map((p: any) => p?.text ?? '').join('').trim();
+      type Part = { text?: string };
+      const parts: Part[] = data?.candidates?.[0]?.content?.parts || [];
+      const text = parts.map((p) => p.text ?? '').join('').trim();
       return text || q;
     }
   } catch {
