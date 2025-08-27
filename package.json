@@ -2,12 +2,14 @@
   "name": "legal-search-ai-site",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": "20.x" },
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "next lint || true"
+    "lint": "next lint"
   },
   "dependencies": {
     "@mozilla/readability": "0.5.0",
@@ -31,6 +33,8 @@
     "@types/node": "^20.14.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.2",
     "postcss": "8.4.41",
     "typescript": "5.5.4"
   }
