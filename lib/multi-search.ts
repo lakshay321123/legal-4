@@ -45,6 +45,25 @@ async function googleSearch(query: string): Promise<SearchResult[]> {
   }));
 }
 
+async function geminiSearch(query: string): Promise<SearchResult[]> {
+  const key = process.env.GEMINI_SEARCH_KEY;
+  if (!key) return [];
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:search?key=${key}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  }).catch(() => null);
+  if (!r || !r.ok) return [];
+  const data = await r.json().catch(() => ({}));
+  return (data.results || []).map((x: any) => ({
+    title: x.title || '',
+    url: x.url || '',
+    snippet: x.snippet || '',
+    engine: 'gemini',
+  }));
+}
+
 async function legalDbSearch(query: string): Promise<SearchResult[]> {
   const endpoint = process.env.LEGAL_DB_SEARCH_URL;
   if (!endpoint) return [];
@@ -62,7 +81,7 @@ async function legalDbSearch(query: string): Promise<SearchResult[]> {
 }
 
 export async function multiSearch(query: string) {
-  const engines = [bingSearch, googleSearch, legalDbSearch];
+  const engines = [bingSearch, googleSearch, legalDbSearch, geminiSearch];
   const settled = await Promise.allSettled(engines.map((fn) => fn(query)));
   let results: SearchResult[] = [];
   for (const s of settled) {
