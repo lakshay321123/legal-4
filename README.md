@@ -11,6 +11,7 @@ A simple, elegant, ChatGPT-style legal search interface with **New chat**, **Sea
 - Save any AI answer to your Library
 - Lawyer trial limiter: 10 prompts/month on the free plan
 - Basic API route `/api/answer` with OpenAI support if you set a key; otherwise mock answers with official source links
+- Unified search module that queries Bing, Google and optional legal databases, dedupes results and returns a single response
 - Legal pages: Disclaimer, Terms, Privacy, Sourcing
 
 ## Quick start
@@ -38,6 +39,8 @@ pnpm dev   # then open http://localhost:3000
 
 ## Optional retrieval keys
 - `BING_API_KEY` – for official-domain web search (India Code, e-Gazette, Supreme Court, etc.).
+- `GOOGLE_API_KEY` and `GOOGLE_CSE_ID` – enable Google Custom Search as an additional source.
+- `LEGAL_DB_SEARCH_URL` – HTTP endpoint for any in-house legal database search API.
 - `NEXT_PUBLIC_BASE_URL` – set this to your deployed base URL so the server can call its own `/api/scrape` in production.
 - `PREFER_HINDI=1` – environment flag to prefer Hindi for Citizen answers.
 
@@ -45,6 +48,9 @@ Example `.env.local`:
 ```
 OPENAI_API_KEY=sk-...
 BING_API_KEY=...
+GOOGLE_API_KEY=...
+GOOGLE_CSE_ID=...
+LEGAL_DB_SEARCH_URL=https://legal.example.com/search
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 # PREFER_HINDI=1
 ```
