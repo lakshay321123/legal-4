@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getContext, updateContext, extractContextBits, summarizeContext, clearContext } from '@/lib/memory';
+import { getContext, updateContext, extractContextBits, summarizeContext } from '@/lib/memory';
 import { multiSearch, type SearchResult } from '@/lib/multi-search';
 
 const SYSTEM_PROMPT_CITIZEN = `
@@ -193,11 +193,15 @@ export async function POST(req: Request) {
       answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits);
     }
 
-    if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
+    if (mode === 'citizen') answer += `\n\n${DISCLAIMER}`;
     return NextResponse.json({
       answer,
       context: getContext(ip),
-      sources: topResults.map(r => ({ title: r.title, url: r.url, snippet: r.snippet })),
+      sources: topResults.map(r => ({
+        title: r.title,
+        url: r.url,
+        snippet: smallExtract(r.snippet || '', 400),
+      })),
     });
   } catch (err: any) {
     console.error('[answer route error]', err?.message || err, err?.stack);
