@@ -18,6 +18,7 @@ export default function TopBar({ title = 'LexLens' }: Props) {
           </Link>
           <nav className="hidden sm:flex items-center gap-4 text-sm text-zinc-600">
             <Link href="/search" className="hover:text-black">Search</Link>
+            <Link href="/websearch" className="hover:text-black">Web</Link>
             <Link href="/library" className="hover:text-black">Library</Link>
             <Link href="/settings" className="hover:text-black">Settings</Link>
           </nav>
