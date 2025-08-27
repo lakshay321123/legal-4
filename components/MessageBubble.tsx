@@ -5,9 +5,11 @@ import clsx from 'clsx';
 export default function MessageBubble({
   role,
   content,
+  sources,
 }: {
   role: 'user' | 'assistant';
   content: string;
+  sources?: { title: string; url: string }[];
 }) {
   return (
     <div className={clsx(
@@ -19,6 +21,22 @@ export default function MessageBubble({
       </div>
       <div className="text-sm leading-7">
         <Markdown>{content}</Markdown>
+        {sources?.length ? (
+          <ol className="mt-3 space-y-1 text-xs">
+            {sources.map((s, i) => (
+              <li key={i}>
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  [{i + 1}] {s.title}
+                </a>
+              </li>
+            ))}
+          </ol>
+        ) : null}
       </div>
     </div>
   );

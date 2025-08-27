@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getContext, updateContext, extractContextBits, summarizeContext, clearContext } from '@/lib/memory';
+import { getContext, updateContext, extractContextBits, summarizeContext } from '@/lib/memory';
+import type { SearchResult } from '@/lib/multi-search';
 
 const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
@@ -88,12 +89,17 @@ function smallExtract(s: string, max = 1200) {
   return s.length > max ? s.slice(0, max) + ' …' : s;
 }
 
+function summarizeWeb(results: SearchResult[], max = 5) {
+  return results.slice(0, max).map((r, i) => `${i + 1}. ${r.title} — ${r.snippet}`).join('\n');
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const q: string = (body.q ?? '').toString();
     const mode: 'citizen' | 'lawyer' = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
     const docs: Array<{ name: string; type: string; text: string }> = Array.isArray(body.docs) ? body.docs : [];
+    const webResults: SearchResult[] = Array.isArray(body.webResults) ? body.webResults : [];
 
     if (!q.trim()) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
@@ -153,6 +159,9 @@ export async function POST(req: Request) {
       ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n')
       : '';
 
+    const webSummary = webResults.length ? summarizeWeb(webResults) : '';
+    const qWithWeb = webSummary ? `Web search results:\n${webSummary}\n\n${q}` : q;
+
     const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
 
     let answer: string;
@@ -164,7 +173,7 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callGemini(key, GEMINI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callGemini(key, GEMINI_MODEL, system, qWithWeb, ctxSummary, docBits);
     } else {
       const key = process.env.OPENAI_API_KEY;
       if (!key) {
@@ -173,11 +182,12 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callOpenAI(key, OPENAI_MODEL, system, qWithWeb, ctxSummary, docBits);
     }
 
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
-    return NextResponse.json({ answer, context: getContext(ip), sources: [] });
+    const sources = webResults.slice(0, 3).map(r => ({ title: r.title, url: r.url }));
+    return NextResponse.json({ answer, context: getContext(ip), sources });
   } catch (err: any) {
     console.error('[answer route error]', err?.message || err, err?.stack);
     return NextResponse.json(
