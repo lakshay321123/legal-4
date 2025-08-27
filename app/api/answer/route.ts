@@ -186,13 +186,12 @@ export async function POST(req: Request) {
   } catch (err: any) {
     const msg = String(err?.message || err);
     const upstream = msg.includes(':') ? msg.split(':').slice(1).join(':').trim() : msg;
-    console.error('[answer route error]', { provider: PROVIDER, q, mode, docsLen: docs.length, ip }, msg, err?.stack);
+    console.error('[answer route error]', { provider: PROVIDER, q, mode, docCount: docs.length, ip }, msg, err?.stack);
     return NextResponse.json(
       {
         answer: '⚠️ Error contacting AI provider.',
         provider: PROVIDER,
         upstream: upstream.slice(0, 500),
-        diagnostic: msg.slice(0, 500),
       },
       { status: 500 }
     );
