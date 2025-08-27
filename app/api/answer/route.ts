@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContext, updateContext, extractContextBits, summarizeContext, clearContext } from '@/lib/memory';
+import { searchLegalSources, fetchSummaries } from '@/lib/retrieval';
 
 const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
@@ -148,10 +149,25 @@ export async function POST(req: Request) {
 
     const ctxSummary = summarizeContext(getContext(ip));
 
-    // compact doc extracts
-    const docBits = docs.length
+    // compact doc extracts from uploaded files
+    const uploadedBits = docs.length
       ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n')
       : '';
+
+    // web search + summaries for additional context
+    const searchResults = await searchLegalSources(q);
+    const summaries = await fetchSummaries(searchResults.map(r => r.url));
+    const sources = searchResults.map((r) => ({
+      ...r,
+      summary: summaries.find((s) => s.url === r.url)?.summary || '',
+    }));
+
+    const externalBits = sources
+      .filter((s) => s.summary)
+      .map((s) => `【${s.title}】\n${smallExtract(s.summary)}`)
+      .join('\n\n');
+
+    const docBits = [uploadedBits, externalBits].filter(Boolean).join('\n\n');
 
     const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
 
@@ -177,7 +193,7 @@ export async function POST(req: Request) {
     }
 
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
-    return NextResponse.json({ answer, context: getContext(ip), sources: [] });
+    return NextResponse.json({ answer, context: getContext(ip), sources });
   } catch (err: any) {
     console.error('[answer route error]', err?.message || err, err?.stack);
     return NextResponse.json(
