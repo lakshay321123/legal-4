@@ -13,7 +13,7 @@ body {
 }
 
 .card {
-  @apply bg-white border border-slate-200 rounded-2xl shadow-soft;
+  @apply bg-white border border-slate-200 rounded-2xl shadow-sm;
 }
 
 .btn {
