@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getContext, updateContext, extractContextBits, summarizeContext, clearContext } from '@/lib/memory';
+import { DISCLAIMER } from '@/lib/constants';
 
 const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
 Use simple words, short paragraphs, step-by-step explanations, avoid legalese.
-Add a short "Not legal advice." line at the end.
 If the question is vague, ask 1–2 quick clarifying questions first (ONLY if those details are not provided in the context below).
 Always respect and use the provided CONTEXT if present, and do not ask again for what is already given.
 `;
@@ -22,7 +22,6 @@ function isGreeting(text: string) {
   return ['hi','hello','hey','namaste','good morning','good afternoon','good evening'].some(w => s.startsWith(w));
 }
 
-const DISCLAIMER = '⚠️ Informational only — not a substitute for advice from a licensed advocate.';
 
 // env
 const PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
@@ -176,7 +175,7 @@ export async function POST(req: Request) {
       answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits);
     }
 
-    if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
+    if (mode === 'citizen') answer += `\n\n${DISCLAIMER}`;
     return NextResponse.json({ answer, context: getContext(ip), sources: [] });
   } catch (err: any) {
     console.error('[answer route error]', err?.message || err, err?.stack);
