@@ -30,6 +30,7 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ q, mode, docs }),
       });
+      if (!res.ok) throw new Error('Server error');
       const data = await res.json();
       const text = data?.answer ?? 'No answer.';
       setMessages(m => [...m, { role: 'assistant', content: text }]);
@@ -54,14 +55,15 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     setUploadBusy(true);
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
       if (data?.files?.length) {
         setDocs(prev => [...prev, ...data.files]);
       } else {
-        alert('Could not read those files.');
+        setMessages(m => [...m, { role: 'assistant', content: '⚠️ Could not read those files.' }]);
       }
     } catch {
-      alert('Upload failed.');
+      setMessages(m => [...m, { role: 'assistant', content: '⚠️ Upload failed.' }]);
     } finally {
       setUploadBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
