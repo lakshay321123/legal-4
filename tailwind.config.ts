@@ -8,14 +8,6 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
-        brand: {
-          50: "#eef6ff",
-          100: "#d9ebff",
-          500: "#2563eb",
-          600: "#1d4ed8"
-        }
-      },
       borderRadius: {
         xl: "0.875rem",
         "2xl": "1rem"

@@ -35,12 +35,12 @@ export default function Composer({
         onKeyDown={handleKeyDown}
         placeholder="Type your question… (Shift+Enter for a new line)"
         rows={1}
-        className="flex-1 resize-none outline-none bg-transparent px-3 py-2 rounded-xl border border-slate-300 focus:border-brand-500"
+        className="flex-1 resize-none outline-none bg-transparent px-3 py-2 rounded-xl border border-slate-300 focus:border-slate-500"
       />
       <button
         onClick={doSend}
         disabled={disabled || val.trim().length === 0}
-        className="px-4 py-2 rounded-xl bg-brand-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-500 transition"
+        className="px-4 py-2 rounded-xl bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition"
         aria-label="Send"
       >
         Send
