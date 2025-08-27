@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getContext, updateContext, extractContextBits, summarizeContext, clearContext } from '@/lib/memory';
+import { multiSearch } from '@/lib/multi-search';
+import { appendNoSearchNote } from '@/lib/search-note';
 
 const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
 Use simple words, short paragraphs, step-by-step explanations, avoid legalese.
 Add a short "Not legal advice." line at the end.
-If the question is vague, ask 1–2 quick clarifying questions first (ONLY if those details are not provided in the context below).
+Only ask 1–2 quick clarifying questions if web search returns no relevant results.
 Always respect and use the provided CONTEXT if present, and do not ask again for what is already given.
 `;
 
@@ -148,6 +150,9 @@ export async function POST(req: Request) {
 
     const ctxSummary = summarizeContext(getContext(ip));
 
+    const { results: searchResults = [] } = await multiSearch(q);
+    const userWithNote = appendNoSearchNote(q, searchResults.length > 0);
+
     // compact doc extracts
     const docBits = docs.length
       ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n')
@@ -164,7 +169,7 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callGemini(key, GEMINI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callGemini(key, GEMINI_MODEL, system, userWithNote, ctxSummary, docBits);
     } else {
       const key = process.env.OPENAI_API_KEY;
       if (!key) {
@@ -173,9 +178,12 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callOpenAI(key, OPENAI_MODEL, system, userWithNote, ctxSummary, docBits);
     }
 
+    if (!searchResults.length) {
+      answer = `No recent info found—please clarify.\n\n${answer}`;
+    }
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
     return NextResponse.json({ answer, context: getContext(ip), sources: [] });
   } catch (err: any) {
