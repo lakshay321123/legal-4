@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContext, updateContext, extractContextBits, summarizeContext, clearContext } from '@/lib/memory';
+import { queryVectorStore, embedTexts } from '@/lib/vector-store';
 
 const SYSTEM_PROMPT_CITIZEN = `
 You are a friendly legal explainer for regular citizens.
@@ -93,7 +94,6 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const q: string = (body.q ?? '').toString();
     const mode: 'citizen' | 'lawyer' = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
-    const docs: Array<{ name: string; type: string; text: string }> = Array.isArray(body.docs) ? body.docs : [];
 
     if (!q.trim()) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
@@ -148,10 +148,19 @@ export async function POST(req: Request) {
 
     const ctxSummary = summarizeContext(getContext(ip));
 
-    // compact doc extracts
-    const docBits = docs.length
-      ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n')
-      : '';
+    // Retrieve relevant passages from vector store
+    let docBits = '';
+    try {
+      const qEmbed = (await embedTexts([q]))[0];
+      const hits = await queryVectorStore(PROVIDER, qEmbed, 3);
+      if (hits.length) {
+        docBits = hits
+          .map(h => `【${h.metadata.name}】\n${smallExtract(h.text)}`)
+          .join('\n\n');
+      }
+    } catch (err) {
+      console.error('[vector query error]', err);
+    }
 
     const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
 

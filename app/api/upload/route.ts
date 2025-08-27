@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { chunkText, embedTexts, addToVectorStore, PROVIDER } from '@/lib/vector-store';
 export const runtime = 'nodejs'; // pdf-parse/mammoth need Node
 
 type Doc = { name: string; type: string; text: string };
@@ -49,7 +50,23 @@ export async function POST(req: Request) {
     }
 
     if (text.trim()) {
-      out.push({ name, type: f.type || 'unknown', text: text.slice(0, 20000) });
+      const trimmed = text.slice(0, 20000);
+      out.push({ name, type: f.type || 'unknown', text: trimmed });
+      try {
+        const chunks = chunkText(trimmed);
+        const embeddings = await embedTexts(chunks);
+        await addToVectorStore(
+          chunks.map((c, i) => ({
+            id: `${name}-${Date.now()}-${i}`,
+            provider: PROVIDER,
+            embedding: embeddings[i],
+            text: c,
+            metadata: { name, type: f.type || 'unknown', chunk: i },
+          }))
+        );
+      } catch (err) {
+        console.error('[upload embedding error]', err);
+      }
     }
   }
 
