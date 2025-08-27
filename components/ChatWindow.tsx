@@ -1,11 +1,20 @@
-'use client';
-import { useEffect, useRef, useState } from 'react';
-import MessageBubble from './MessageBubble';
+"use client";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import MessageBubble from "./MessageBubble";
 
-type Msg = { role: 'user' | 'assistant'; content: string };
+type Msg = { role: "user" | "assistant"; content: string };
 type Doc = { name: string; type: string; text: string };
 
-export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
+export type ChatWindowHandle = {
+  /**
+   * Prefill the textarea with the given text and focus it.
+   */
+  setInputValue: (text: string) => void;
+};
+
+const ChatWindow = forwardRef<ChatWindowHandle, { mode: "citizen" | "lawyer" }>(
+  ({ mode }, ref)
+) => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,7 +25,16 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => { textareaRef.current?.focus(); }, []);
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    setInputValue(text: string) {
+      setInput(text);
+      textareaRef.current?.focus();
+    },
+  }));
 
   async function send() {
     const q = input.trim();
@@ -165,4 +183,6 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
       </div>
     </div>
   );
-}
+});
+
+export default ChatWindow;

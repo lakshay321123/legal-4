@@ -1,10 +1,11 @@
-'use client';
-import { useState } from 'react';
-import ModeToggle from '@/components/ModeToggle';
-import ChatWindow from '@/components/ChatWindow';
+"use client";
+import { useRef, useState } from "react";
+import ModeToggle from "@/components/ModeToggle";
+import ChatWindow, { ChatWindowHandle } from "@/components/ChatWindow";
 
 export default function HomeClient() {
-  const [mode, setMode] = useState<'citizen'|'lawyer'>('citizen');
+  const [mode, setMode] = useState<'citizen' | 'lawyer'>('citizen');
+  const chatRef = useRef<ChatWindowHandle>(null);
 
   return (
     <div className="py-6 grid gap-4 md:grid-cols-[280px_1fr] h-screen">
@@ -15,18 +16,15 @@ export default function HomeClient() {
         <div className="card p-3 space-y-2">
           <div className="text-xs uppercase tracking-wide text-slate-500">Quick starts</div>
           {[
-            'Draft a rent agreement for a Delhi apartment (essentials + clauses).',
-            'Explain Article 21 with 2 landmark cases in simple words.',
-            'Steps to file an online consumer complaint in India.',
-            'Bail basics: types and common conditions.'
-          ].map((q) => (
+            "Draft a rent agreement for a Delhi apartment (essentials + clauses).",
+            "Explain Article 21 with 2 landmark cases in simple words.",
+            "Steps to file an online consumer complaint in India.",
+            "Bail basics: types and common conditions.",
+          ].map(q => (
             <button
               key={q}
               className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 text-sm"
-              onClick={() => {
-                const ta = document.querySelector('textarea');
-                if (ta) { (ta as HTMLTextAreaElement).value = q; ta.dispatchEvent(new Event('input', { bubbles: true })); }
-              }}
+              onClick={() => chatRef.current?.setInputValue(q)}
             >
               {q}
             </button>
@@ -42,7 +40,7 @@ export default function HomeClient() {
         <header className="px-5 py-3 text-sm text-slate-700 border-b">
           {mode === 'lawyer' ? 'LexLens — Lawyer Mode' : 'LexLens — Citizen Mode'}
         </header>
-        <ChatWindow mode={mode} />
+        <ChatWindow mode={mode} ref={chatRef} />
       </div>
     </div>
   );
