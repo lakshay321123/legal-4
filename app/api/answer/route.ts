@@ -94,6 +94,7 @@ export async function POST(req: Request) {
     const q: string = (body.q ?? '').toString();
     const mode: 'citizen' | 'lawyer' = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
     const docs: Array<{ name: string; type: string; text: string }> = Array.isArray(body.docs) ? body.docs : [];
+    const webResults: Array<{ title: string; url: string; snippet?: string }> = Array.isArray(body.webResults) ? body.webResults : [];
 
     if (!q.trim()) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
@@ -153,6 +154,12 @@ export async function POST(req: Request) {
       ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n')
       : '';
 
+    const webSummary = webResults
+      .slice(0, 5)
+      .map((r, i) => `[${i + 1}] ${r.title} - ${r.url}\n${r.snippet || ''}`)
+      .join('\n');
+    const userPrompt = (webSummary ? `WEB_RESULTS:\n${webSummary}\n\n` : '') + q;
+
     const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
 
     let answer: string;
@@ -164,7 +171,7 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callGemini(key, GEMINI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callGemini(key, GEMINI_MODEL, system, userPrompt, ctxSummary, docBits);
     } else {
       const key = process.env.OPENAI_API_KEY;
       if (!key) {
@@ -173,11 +180,11 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callOpenAI(key, OPENAI_MODEL, system, userPrompt, ctxSummary, docBits);
     }
 
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;
-    return NextResponse.json({ answer, context: getContext(ip), sources: [] });
+    return NextResponse.json({ answer, context: getContext(ip), sources: webResults });
   } catch (err: any) {
     console.error('[answer route error]', err?.message || err, err?.stack);
     return NextResponse.json(
