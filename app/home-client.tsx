@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import ModeToggle from '@/components/ModeToggle';
 import ChatWindow from '@/components/ChatWindow';
+import { DISCLAIMER } from '@/lib/constants';
 
 export default function HomeClient() {
   const [mode, setMode] = useState<'citizen'|'lawyer'>('citizen');
@@ -31,9 +32,9 @@ export default function HomeClient() {
               {q}
             </button>
           ))}
-          <div className="text-[11px] text-slate-500 px-1">
-            Informational only — not legal advice.
-          </div>
+          {mode === 'citizen' && (
+            <div className="text-[11px] text-slate-500 px-1">{DISCLAIMER}</div>
+          )}
         </div>
       </div>
 
