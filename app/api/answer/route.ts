@@ -24,6 +24,18 @@ function isGreeting(text: string) {
 
 const DISCLAIMER = '⚠️ Informational only — not a substitute for advice from a licensed advocate.';
 
+// Maximum question length to avoid excessively large prompts. If adjusted,
+// remember to update the README.
+const MAX_Q_LEN = 500;
+
+function normalizeQuestion(input: string) {
+  return input
+    .replace(/[\u0000-\u001F\u007F]+/g, ' ')
+    .replace(/<\|.*?\|>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // env
 const PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
@@ -91,12 +103,16 @@ function smallExtract(s: string, max = 1200) {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const q: string = (body.q ?? '').toString();
+    const rawQ = (body.q ?? '').toString();
+    const q = normalizeQuestion(rawQ);
     const mode: 'citizen' | 'lawyer' = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
     const docs: Array<{ name: string; type: string; text: string }> = Array.isArray(body.docs) ? body.docs : [];
 
-    if (!q.trim()) {
+    if (!q) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
+    }
+    if (q.length > MAX_Q_LEN) {
+      return NextResponse.json({ answer: `Question too long (max ${MAX_Q_LEN} characters).` }, { status: 400 });
     }
 
     const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'anon';
