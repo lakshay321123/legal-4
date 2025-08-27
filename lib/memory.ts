@@ -1,7 +1,16 @@
 // lib/memory.ts
-// In-memory context store with topic + last question.
-// NOTE: On serverless (Vercel), this resets when the function instance recycles.
-// For persistence, later plug into a DB/Redis.
+// Persistent user memory store (context + extracted facts + document embeddings).
+// Data is stored per user/session in data/memory.json:
+// {
+//   "<userId>": {
+//     context: { ...Context },
+//     facts: ["fact1", "fact2"],
+//     embeddings: { "docId": [0.1, 0.2, ...] }
+//   }
+// }
+
+import fs from 'fs';
+import path from 'path';
 
 export type Topic =
   | 'rent_agreement'
@@ -19,25 +28,77 @@ export type Context = {
   state?: string;
   property?: 'house' | 'apartment' | 'shop' | 'office' | 'land' | 'other';
   lastQ?: string;
-  extras?: string[];
+  extras?: string[]; // extracted facts
   updatedAt?: number;
 };
 
-const memory = new Map<string, Context>();
+export interface UserMemory {
+  context: Context;
+  facts: string[];
+  embeddings: Record<string, number[]>; // docId -> embedding vector
+}
+
+const DATA_DIR = path.join(process.cwd(), 'data');
+const MEM_FILE = path.join(DATA_DIR, 'memory.json');
+
+function loadStore(): Record<string, UserMemory> {
+  try {
+    const raw = fs.readFileSync(MEM_FILE, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+const store: Record<string, UserMemory> = loadStore();
+
+function persist() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(MEM_FILE, JSON.stringify(store, null, 2));
+}
 
 export function getContext(userId: string): Context {
-  return memory.get(userId) ?? {};
+  return store[userId]?.context ?? {};
+}
+
+export function getUserMemory(userId: string): UserMemory {
+  return store[userId] ?? { context: {}, facts: [], embeddings: {} };
 }
 
 export function updateContext(userId: string, patch: Partial<Context>) {
-  const prev = memory.get(userId) ?? {};
+  const prev = store[userId]?.context ?? {};
   const next: Context = { ...prev, ...patch, updatedAt: Date.now() };
-  memory.set(userId, next);
+  const rec = store[userId] ?? { context: next, facts: [], embeddings: {} };
+  rec.context = next;
+  rec.facts = rec.context.extras ?? rec.facts; // keep extras synced
+  store[userId] = rec;
+  persist();
   return next;
 }
 
+export function addFacts(userId: string, facts: string[]) {
+  if (!facts.length) return;
+  const rec = store[userId] ?? { context: {}, facts: [], embeddings: {} };
+  rec.facts.push(...facts);
+  rec.context.updatedAt = Date.now();
+  rec.context.extras = rec.facts;
+  store[userId] = rec;
+  persist();
+}
+
+export function saveEmbedding(userId: string, docId: string, embedding: number[]) {
+  const rec = store[userId] ?? { context: {}, facts: [], embeddings: {} };
+  rec.embeddings[docId] = embedding;
+  rec.context.updatedAt = Date.now();
+  store[userId] = rec;
+  persist();
+}
+
 export function clearContext(userId: string) {
-  memory.set(userId, { updatedAt: Date.now(), extras: [] });
+  if (store[userId]) {
+    delete store[userId];
+    persist();
+  }
 }
 
 const STATES = [

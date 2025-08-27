@@ -73,7 +73,7 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     setMessages([]);
     setDocs([]);
     setInput('');
-    try { await fetch('/api/clear', { method: 'POST' }); } catch {}
+    try { await fetch('/api/clear-memory', { method: 'POST' }); } catch {}
     textareaRef.current?.focus();
   }
 
