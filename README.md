@@ -18,17 +18,17 @@ A simple, elegant, ChatGPT-style legal search interface with **New chat**, **Sea
 ```bash
 pnpm i     # or npm i or yarn
 cp .env.local.example .env.local
-# (optional) edit .env.local and add OPENAI_API_KEY=sk-...
+# (optional) edit .env.local to set AI_PROVIDER and API key(s)
 
 pnpm dev   # then open http://localhost:3000
 ```
 
 ## Environment
 - `AI_PROVIDER` – LLM provider (`gemini` by default; set to `openai` to use OpenAI).
-- `OPENAI_API_KEY` – required when `AI_PROVIDER=openai`; otherwise you'll see demo answers with source links.
-- `OPENAI_MODEL` – optional, default `gpt-4o`.
 - `GEMINI_API_KEY` – required when `AI_PROVIDER=gemini`.
 - `GEMINI_MODEL` – optional, default `gemini-1.5-flash`.
+- `OPENAI_API_KEY` – required when `AI_PROVIDER=openai`; otherwise you'll see demo answers with source links.
+- `OPENAI_MODEL` – optional, default `gpt-4o`.
 
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
