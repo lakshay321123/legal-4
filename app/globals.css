@@ -13,6 +13,7 @@ body {
 }
 
 .card {
+  /* Card container with soft shadow */
   @apply bg-white border border-slate-200 rounded-2xl shadow-soft;
 }
 
