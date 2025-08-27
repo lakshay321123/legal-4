@@ -48,3 +48,30 @@ BING_API_KEY=...
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 # PREFER_HINDI=1
 ```
+
+## Web search API
+
+`POST /api/websearch` accepts:
+
+- `query` – the search terms (string)
+- `materialType` – optional, one of `case_law` or `research`. Determines which
+  trusted domains are searched (e.g., `case_law` includes `indiankanoon.org`
+  and High Courts; `research` includes law journals and repositories).
+
+The response is:
+
+```json
+{
+  "results": [
+    {
+      "title": "string",
+      "url": "string",
+      "snippet": "string",
+      "score": 0
+    }
+  ]
+}
+```
+
+`score` is a basic relevance score combining domain priority and keyword
+matches; results are returned in descending order.
