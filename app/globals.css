@@ -13,7 +13,8 @@ body {
 }
 
 .card {
-  @apply bg-white border border-slate-200 rounded-2xl shadow-soft;
+  /* Use the custom card shadow defined in tailwind.config.ts */
+  @apply bg-white border border-slate-200 rounded-2xl shadow-card;
 }
 
 .btn {
