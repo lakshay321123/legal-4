@@ -1,3 +1,7 @@
 {
-  "version": 2
+  "version": 2,
+  "env": {
+    "BING_API_KEY": "@bing_api_key",
+    "NEXT_PUBLIC_BASE_URL": "@next_public_base_url"
+  }
 }
