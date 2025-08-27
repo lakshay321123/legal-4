@@ -30,10 +30,19 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 
 // ===== Provider calls
-async function callGemini(apiKey: string, model: string, system: string, userQ: string, ctxSummary?: string, docBits?: string) {
+async function callGemini(
+  apiKey: string,
+  model: string,
+  system: string,
+  userQ: string,
+  ctxSummary?: string,
+  docBits?: string,
+  searchBits?: string
+) {
   const sys = system.trim()
     + (ctxSummary ? `\n\nCONTEXT (authoritative): ${ctxSummary}` : '')
-    + (docBits ? `\n\nATTACHED_DOCS (extracts): ${docBits}` : '');
+    + (docBits ? `\n\nATTACHED_DOCS (extracts): ${docBits}` : '')
+    + (searchBits ? `\n\nWEB_RESULTS: ${searchBits}` : '');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url, {
     method: 'POST',
@@ -53,10 +62,19 @@ async function callGemini(apiKey: string, model: string, system: string, userQ: 
   return parts.map((p: any) => p?.text ?? '').join('').trim() || 'No answer generated.';
 }
 
-async function callOpenAI(apiKey: string, model: string, system: string, userQ: string, ctxSummary?: string, docBits?: string) {
+async function callOpenAI(
+  apiKey: string,
+  model: string,
+  system: string,
+  userQ: string,
+  ctxSummary?: string,
+  docBits?: string,
+  searchBits?: string
+) {
   const sys = system.trim()
     + (ctxSummary ? `\n\nCONTEXT (authoritative): ${ctxSummary}` : '')
-    + (docBits ? `\n\nATTACHED_DOCS (extracts): ${docBits}` : '');
+    + (docBits ? `\n\nATTACHED_DOCS (extracts): ${docBits}` : '')
+    + (searchBits ? `\n\nWEB_RESULTS: ${searchBits}` : '');
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -94,6 +112,7 @@ export async function POST(req: Request) {
     const q: string = (body.q ?? '').toString();
     const mode: 'citizen' | 'lawyer' = body.mode === 'lawyer' ? 'lawyer' : 'citizen';
     const docs: Array<{ name: string; type: string; text: string }> = Array.isArray(body.docs) ? body.docs : [];
+    const search: Array<{ url: string; snippet: string; title?: string }> = Array.isArray(body.search) ? body.search : [];
 
     if (!q.trim()) {
       return NextResponse.json({ answer: 'Please type a question.' }, { status: 400 });
@@ -153,6 +172,11 @@ export async function POST(req: Request) {
       ? docs.map(d => `【${d.name}】\n${smallExtract(d.text)}`).join('\n\n')
       : '';
 
+    // web search snippets
+    const searchBits = search.length
+      ? search.map((s) => `【${s.url}】\n${s.snippet}`).join('\n\n')
+      : '';
+
     const system = mode === 'lawyer' ? SYSTEM_PROMPT_LAWYER : SYSTEM_PROMPT_CITIZEN;
 
     let answer: string;
@@ -164,7 +188,7 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callGemini(key, GEMINI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callGemini(key, GEMINI_MODEL, system, q, ctxSummary, docBits, searchBits);
     } else {
       const key = process.env.OPENAI_API_KEY;
       if (!key) {
@@ -173,7 +197,7 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
-      answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits);
+      answer = await callOpenAI(key, OPENAI_MODEL, system, q, ctxSummary, docBits, searchBits);
     }
 
     if (mode === 'citizen') answer += `\n\n${'⚠️ Informational only — not a substitute for advice from a licensed advocate.'}`;

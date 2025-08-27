@@ -4,6 +4,7 @@ import MessageBubble from './MessageBubble';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type Doc = { name: string; type: string; text: string };
+type SearchResult = { title: string; url: string; snippet: string };
 
 export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -25,10 +26,21 @@ export default function ChatWindow({ mode }: { mode: 'citizen'|'lawyer' }) {
     setMessages(m => [...m, { role: 'user', content: q }]);
     setLoading(true);
     try {
+      let search: SearchResult[] = [];
+      try {
+        const ws = await fetch('/api/websearch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        });
+        const wsData = await ws.json();
+        search = Array.isArray(wsData?.results) ? wsData.results : [];
+      } catch {}
+
       const res = await fetch('/api/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q, mode, docs }),
+        body: JSON.stringify({ q, mode, docs, search }),
       });
       const data = await res.json();
       const text = data?.answer ?? 'No answer.';
