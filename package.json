@@ -32,6 +32,8 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "postcss": "8.4.41",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.5"
   }
 }
