@@ -1,8 +1,32 @@
+import type { Metadata } from 'next';
+
+const url = 'https://lexlens.ai/legal/privacy';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy – LexLens',
+  description: 'How LexLens collects, uses, and protects your data.',
+  alternates: {
+    canonical: url,
+  },
+  openGraph: {
+    title: 'Privacy Policy – LexLens',
+    description: 'How LexLens collects, uses, and protects your data.',
+    url,
+    siteName: 'LexLens',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Privacy Policy – LexLens',
+    description: 'How LexLens collects, uses, and protects your data.',
+  },
+};
+
 export default function PrivacyPage() {
   return (
     <div className="prose max-w-3xl">
       <h1>Privacy Policy</h1>
       <p>We collect minimal data to operate the service: account details, queries, and usage telemetry. We keep query logs for no more than 90 days and support data-rights requests. For the DPDP-compliant full policy, replace this text with your customized policy from the canvas.</p>
     </div>
-  )
+  );
 }
