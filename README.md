@@ -26,6 +26,11 @@ pnpm dev   # then open http://localhost:3000
 ## Environment
 - `OPENAI_API_KEY` (optional): for real answers. Without it you'll see a demo answer with source links.
 
+## SEO
+This project uses [`next-sitemap`](https://github.com/iamvishnusankar/next-sitemap) to generate `sitemap.xml` and `robots.txt`.
+
+Set `NEXT_PUBLIC_BASE_URL` to your deployed site URL so the sitemap has correct links. Running `npm run build` will create or update the files under `public/`.
+
 ## Roadmap hooks (not included yet)
 - Retrieval pipeline (India Code / Gazette / SC / HCs) with hybrid search and RAG
 - Server storage (Postgres) and auth
